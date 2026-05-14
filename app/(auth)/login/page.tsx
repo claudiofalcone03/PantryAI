@@ -138,12 +138,12 @@ export default function LoginPage() {
           Google
         </button>
 
-        <p className="mt-8 text-center text-sm text-white/70">
+        <div className="mt-8 text-center text-sm text-white/70">
           {isLogin ? "Don't have an account? " : "Already have an account? "}
           <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-white hover:underline focus:outline-none">
             {isLogin ? "Sign up" : "Log in"}
           </button>
-        </p>
+        </div>
       </div>
     </div>
   );
