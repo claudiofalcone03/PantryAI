@@ -21,14 +21,14 @@ export default function LoginPage() {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
         console.log("Logged in successfully!");
-        // TODO: window.location.href = "/dashboard"
+        window.location.href = "/dashboard";
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
         console.log("Registered successfully!");
-        // TODO: window.location.href = "/dashboard"
+        window.location.href = "/dashboard";
       }
-    } catch (err: any) {
-      setError(err.message || "An error occurred during authentication.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred during authentication.");
     } finally {
       setLoading(false);
     }
@@ -39,9 +39,9 @@ export default function LoginPage() {
     try {
       await signInWithPopup(auth, googleProvider);
       console.log("Logged in with Google successfully!");
-      // TODO: window.location.href = "/dashboard"
-    } catch (err: any) {
-      setError(err.message || "An error occurred with Google Sign-In.");
+      window.location.href = "/redirect-login";
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred with Google Sign-In.");
     }
   };
 
