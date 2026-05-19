@@ -19,10 +19,12 @@ export default function LoginPage() {
 
     try {
       if (isLogin) {
+        console.log("Invio credenziali di login a Firebase Auth:", { email });
         await signInWithEmailAndPassword(auth, email, password);
         console.log("Logged in successfully!");
         window.location.href = "/dashboard";
       } else {
+        console.log("Invio credenziali di registrazione a Firebase Auth:", { email });
         await createUserWithEmailAndPassword(auth, email, password);
         console.log("Registered successfully!");
         window.location.href = "/dashboard";
@@ -36,6 +38,7 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setError(null);
+    console.log("Avvio del login con Google tramite signInWithPopup con GoogleAuthProvider");
     try {
       await signInWithPopup(auth, googleProvider);
       console.log("Logged in with Google successfully!");

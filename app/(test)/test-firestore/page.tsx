@@ -12,12 +12,16 @@ export default function TestFirestorePage() {
         setLoading(true);
         setMessage("");
 
+        const payload = {
+            titolo: "Invio 2 da Next.js",
+            descrizione: "Secondo salvataggio dalla webapp",
+            createdAt: serverTimestamp(),
+        };
+
+        console.log("Invio documento alla raccolta 'tesi_test' su Firestore:", payload);
+
         try {
-            const docRef = await addDoc(collection(db, "tesi_test"), {
-                titolo: "Invio 2 da Next.js",
-                descrizione: "Secondo salvataggio dalla webapp",
-                createdAt: serverTimestamp(),
-            });
+            const docRef = await addDoc(collection(db, "tesi_test"), payload);
 
             setMessage(`Documento salvato con ID: ${docRef.id}`);
         } catch (error) {
@@ -33,7 +37,7 @@ export default function TestFirestorePage() {
             <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full flex flex-col gap-6 border border-gray-100">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Test Firestore</h1>
-                    <p className="text-gray-500 text-sm">Invia un documento di prova alla raccolta "tesi_test" del tuo database.</p>
+                    <p className="text-gray-500 text-sm">Invia un documento di prova alla raccolta &quot;tesi_test&quot; del tuo database.</p>
                 </div>
 
                 <button
