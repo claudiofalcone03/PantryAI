@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import type { UserProfile } from "@/lib/firestore/types";  //Imposrta l'interfaccia UserProfile per tipizzare
+import type { UserProfile } from "@/types/firestore";  //Importa l'interfaccia UserProfile per tipizzare
 
 export default function RedirectLoginPage() {
   const [status, setStatus] = useState("Controllo autenticazione in corso...");
