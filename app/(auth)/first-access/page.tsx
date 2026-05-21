@@ -1,3 +1,0 @@
-//Questa pagina è accessibile solo al primo accesso, dopo il quale l'utente viene reindirizzato alla dashboard. Serve per completare il profilo dell'utente con informazioni aggiuntive.
-//Alcune informazioni vengono prese da Google, altre vengono inserite dall'utente. Tutte le informazioni vengono salvate nel database Firestore.
-//L'utente deve decidere se unirsi ad una dispensa già esistente o crearne una nuova. Se decide di unirsi ad una dispensa esistente, deve inserire il codice della dispensa, che viene generato automaticamente quando un utente crea una nuova dispensa. Se decide di creare una nuova dispensa, viene generato un nuovo codice per la dispensa e l'utente diventa l'amministratore della dispensa.
