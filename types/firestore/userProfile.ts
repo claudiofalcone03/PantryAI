@@ -1,7 +1,7 @@
 import type { Timestamp } from "firebase/firestore";
 
 //Tipo profilo utente
-export interface UserProfile {
+export interface userProfile {
   userId: string;
   email: string;
   displayName?: string;
