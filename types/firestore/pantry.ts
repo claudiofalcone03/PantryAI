@@ -5,11 +5,11 @@ import type { PantryMember } from "./pantryMember";
 //Tipo dispensa
 export interface Pantry {
   pantryId?: string;
-  namePantry: string;
-  ownerPantryId: string;
-  createdAt: Timestamp;
-  updatedAt?: Timestamp;
+  pantryName: string;
+  pantryOwnerId: string;
+  pantryCreatedAt: Timestamp;
+  pantryUpdatedAt?: Timestamp;
   pantryMembers?: PantryMember[];
-  inviteCode?: string;
-  //categories 
+  pantryInviteCode?: string;
+  pantryCategories?: string[]; //categorie nella dispensa
 }
