@@ -1,5 +1,7 @@
 import type { Timestamp } from "firebase/firestore";
 
+import type { PantryMember } from "./pantryMember";
+
 //Tipo dispensa
 export interface Pantry {
   id?: string;
@@ -7,7 +9,6 @@ export interface Pantry {
   ownerId: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
-  isShared: boolean;
+  pantryMembers?: PantryMember[];
   inviteCode?: string;
-  description?: string;
 }
