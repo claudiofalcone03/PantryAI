@@ -7,4 +7,5 @@ export interface PantryMember {
   memberId: userProfile["userId"]; //ID firebase del membro
   memberRole: "owner" | "editor" ;
   memberJoinedAtPantry: Timestamp;
+  memberName?: userProfile["userProfileName"]
 }
