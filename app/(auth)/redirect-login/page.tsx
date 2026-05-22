@@ -24,14 +24,11 @@ export default function RedirectLoginPage() {
         userEmail: userAuth.email ?? "",     //vuota se non disponibile
         userProfileName: userAuth.displayName ?? undefined,
         userProfilePhotoURL: userAuth.photoURL ?? undefined,
-        userProfileCreatedAt: Timestamp.now(),
-        userProfilePantryIds: [],
-        userProfileCurrentPantryId: ""
       };
 
       console.log("Salvataggio su Firestore (users/" + userAuth.uid + "):", userProfile);
       try {
-        await setDoc(doc(db, "users", userAuth.uid), userProfile, { merge: true });
+        await setDoc(doc(db, "users", userAuth.uid), userProfile, { merge: true }); //sovrascrive o  crea il documento con i dati dell'utente, merge serve per unire con eventuali dati esistenti
         setStatus(`Profilo salvato correttamente in users/${userAuth.uid}`);
       } catch (saveError) {
         console.error(saveError);
@@ -71,10 +68,13 @@ export default function RedirectLoginPage() {
             <li>email</li>
             <li>displayName</li>
             <li>photoURL</li>
-            <li>createdAt</li>
-          </ul>
+ì          </ul>
         </div>
       </section>
     </main>
   );
 }
+
+
+//Se non ha dispense, vai a app/(auth)/access-to-pantry
+//Se ha dispense, apri la dispensa preferita.

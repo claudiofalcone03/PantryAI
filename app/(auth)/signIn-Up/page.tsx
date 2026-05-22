@@ -6,12 +6,13 @@ import { auth, googleProvider } from "@/lib/firebase";
 import { LogIn, Mail, Lock, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [isLogin, setIsLogin] = useState(true);  // true = login, false = register
+  const [email, setEmail] = useState(""); //stato email per il form di login/registrazione
+  const [password, setPassword] = useState(""); //stato password per il form di login/registrazione
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);  //quando è in corso l'autenticazione (true) vengono disattivati i pulsanti
 
+  //Login/registrazione con email e password
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -21,31 +22,36 @@ export default function LoginPage() {
       if (isLogin) {
         console.log("Invio credenziali di login a Firebase Auth:", { email });
         await signInWithEmailAndPassword(auth, email, password);
-        console.log("Logged in successfully!");
-        window.location.href = "/dashboard";
+        console.log("Login con email avvenuto con successo");
+        window.location.href = "/redirect-login";
+        //dovrei effettuare il controllo e o andare in una pagina intermedia ?
       } else {
         console.log("Invio credenziali di registrazione a Firebase Auth:", { email });
         await createUserWithEmailAndPassword(auth, email, password);
-        console.log("Registered successfully!");
-        window.location.href = "/dashboard";
+        console.log("Registrazione mediante email avvenuta con successo");
+        window.location.href = "/redirect-login";
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred during authentication.");
+      setError(err instanceof Error ? err.message : "È avvenuto un errore durante l'autenticazione cone email e password.");
     } finally {
       setLoading(false);
     }
   };
 
+  //Login con Google
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
     console.log("Avvio del login con Google tramite signInWithPopup con GoogleAuthProvider");
     try {
       await signInWithPopup(auth, googleProvider);
-      console.log("Logged in with Google successfully!");
-      window.location.href = "/redirect-login";
+      console.log("Login con Google è avvenuto con successo");
+      window.location.href = "/redirect-login"; 
+      //oppure 
+      //router.push("/redirect-login")
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred with Google Sign-In.");
+      setError(err instanceof Error ? err.message : "È avvenuto un errore durante il login con Google.");
+    } finally {
       setLoading(false);
     }
   };
@@ -64,10 +70,10 @@ export default function LoginPage() {
             <LogIn className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight">
-            {isLogin ? "Welcome Back" : "Create Account"}
+            {isLogin ? "Benvenuto" : "Crea il tuo account"}
           </h1>
           <p className="text-white/70 mt-2">
-            {isLogin ? "Log in to access your pantry" : "Sign up to start organizing"}
+            {isLogin ? "Accedi per accedere alla tua dispensa" : "Iscriviti per iniziare a organizzare"}
           </p>
         </div>
 
@@ -108,7 +114,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full pl-11 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all"
-                placeholder="••••••••"
+                placeholder="*******"
               />
             </div>
           </div>
@@ -118,13 +124,13 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-3 px-4 bg-white text-purple-600 font-bold rounded-xl shadow-lg hover:bg-opacity-90 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:hover:translate-y-0"
           >
-            {loading ? "Processing..." : isLogin ? "Sign In" : "Sign Up"}
+            {loading ? "Processing..." : isLogin ? "Accedi" : "Iscriviti"}
           </button>
         </form>
 
         <div className="mt-6 flex items-center justify-between">
           <div className="h-px bg-white/20 flex-1"></div>
-          <span className="px-4 text-sm text-white/60">Or continue with</span>
+          <span className="px-4 text-sm text-white/60">Oppure continua con</span>
           <div className="h-px bg-white/20 flex-1"></div>
         </div>
 
@@ -145,9 +151,9 @@ export default function LoginPage() {
         </button>
 
         <div className="mt-8 text-center text-sm text-white/70">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
+          {isLogin ? "Non hai un account? " : "Hai già un account? "}
           <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-white hover:underline focus:outline-none">
-            {isLogin ? "Sign up" : "Log in"}
+            {isLogin ? "Iscriviti" : "Accedi"}
           </button>
         </div>
       </div>
