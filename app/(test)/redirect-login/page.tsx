@@ -8,28 +8,31 @@ import type { UserProfile } from "@/types/firestore";  //Importa l'interfaccia U
 
 export default function RedirectLoginPage() {
   const [status, setStatus] = useState("Controllo autenticazione in corso...");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); //lo stato di errore è una stringa oppure può essere null se non c'è errore
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
+    const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
+      if (!userAuth) {
         setError("Nessun utente autenticato trovato dopo il login.");
         setStatus("Accesso non completato");
         return;
       }
+  //userAuth è l'oggetto restituito da Firebase Authentication 
 
       const userProfile: UserProfile = {
-        userId: user.uid,
-        email: user.email ?? "",     //vuota se non disponibile
-        displayName: user.displayName ?? undefined,
-        photoURL: user.photoURL ?? undefined,
-        createdAt: Timestamp.now(),
+        userId: userAuth.uid,
+        userEmail: userAuth.email ?? "",     //vuota se non disponibile
+        userProfileName: userAuth.displayName ?? undefined,
+        userProfilePhotoURL: userAuth.photoURL ?? undefined,
+        userProfileCreatedAt: Timestamp.now(),
+        userProfilePantryIds: [],
+        userProfileCurrentPantryId: ""
       };
 
-      console.log("Salvataggio su Firestore (users/" + user.uid + "):", userProfile);
+      console.log("Salvataggio su Firestore (users/" + userAuth.uid + "):", userProfile);
       try {
-        await setDoc(doc(db, "users", user.uid), userProfile, { merge: true });
-        setStatus(`Profilo salvato correttamente in users/${user.uid}`);
+        await setDoc(doc(db, "users", userAuth.uid), userProfile, { merge: true });
+        setStatus(`Profilo salvato correttamente in users/${userAuth.uid}`);
       } catch (saveError) {
         console.error(saveError);
         setError("Errore durante il salvataggio del profilo utente su Firestore.");

@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 import type { Pantry } from "./pantry";
-import type { shoppingListItem } from "./shoppingListItem";
+import type { ShoppingListItem } from "./shoppingListItem";
 
 //Tipo Prodotto (inventario)
 export interface Product {
@@ -19,5 +19,5 @@ export interface Product {
   productCreatedAt: Timestamp;
   productUpdatedAt?: Timestamp;
   productPantryId: Pantry["pantryId"]; //id della dispensa a cui il prodotto appartiene
-  productShoppingListItemId?: shoppingListItem["listItemId"] | null; //per collegare il prodotto alla lista della spesa, se è stato creato dalla lista della spsesa
+  productShoppingListItemId?: ShoppingListItem["listItemId"] | null; //per collegare il prodotto alla lista della spesa, se è stato creato dalla lista della spsesa
 }

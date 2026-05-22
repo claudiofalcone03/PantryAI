@@ -1,11 +1,11 @@
 import type { Timestamp } from "firebase/firestore";
 
-import type {userProfile} from "./userProfile";
+import type { UserProfile } from "./userProfile";
 
 //Tipo Membro della dispensa
 export interface PantryMember {
-  memberId: userProfile["userId"]; //ID firebase del membro
+  memberId: UserProfile["userId"]; //ID firebase del membro
   memberRole: "owner" | "editor" ;
   memberJoinedAtPantry: Timestamp;
-  memberName?: userProfile["userProfileName"]
+  memberName?: UserProfile["userProfileName"]
 }

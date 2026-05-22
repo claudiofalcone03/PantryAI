@@ -5,7 +5,7 @@ import type { Pantry } from "./pantry";
 import type { PantryMember } from "./pantryMember";
 
 //Tipo Prodotto (lista della spesa)
-export interface shoppingListItem {
+export interface ShoppingListItem {
   listItemId: string;
   listItemPantryId: Pantry["pantryId"];
   listItemName: string | Product["productName"]; //nome del prodotto della lista della spesa, potrebbe essere diverso se il prodotto viene creato nella lista della spesa
