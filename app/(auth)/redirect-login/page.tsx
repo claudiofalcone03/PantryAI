@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import type { UserProfile } from "@/types/firestore";  //Importa l'interfaccia UserProfile per tipizzare
 
 export default function RedirectLoginPage() {
+  const router = useRouter();
   const [status, setStatus] = useState("Controllo autenticazione in corso...");
   const [error, setError] = useState<string | null>(null); //lo stato di errore è una stringa oppure può essere null se non c'è errore
 
@@ -30,6 +32,9 @@ export default function RedirectLoginPage() {
       try {
         await setDoc(doc(db, "users", userAuth.uid), userProfile, { merge: true }); //sovrascrive o  crea il documento con i dati dell'utente, merge serve per unire con eventuali dati esistenti
         setStatus(`Profilo salvato correttamente in users/${userAuth.uid}`);
+        // Dopo aver salvato il profilo, avvia il routing verso l'area protetta.
+        // `AppGuard` nella root dell'area `(app)` deciderà se mandare a `/access-to-pantry` o `/inventario`.
+        router.replace("/inventario");
       } catch (saveError) {
         console.error(saveError);
         setError("Errore durante il salvataggio del profilo utente su Firestore.");
@@ -68,7 +73,7 @@ export default function RedirectLoginPage() {
             <li>email</li>
             <li>displayName</li>
             <li>photoURL</li>
-ì          </ul>
+          </ul>
         </div>
       </section>
     </main>
