@@ -31,6 +31,9 @@ export default function AppGuard({ children }: { children: React.ReactNode }) {
 
         if (!pantryIds || pantryIds.length === 0) {
           // Nessuna dispensa: manda alla pagina di onboarding/access
+          console.log(
+            `AppGuard: nessuna dispensa trovata per utente ${userAuth?.uid}; reindirizzo a /access-to-pantry`
+          );
           router.replace("/access-to-pantry");
           setAllowed(false);
         } else {

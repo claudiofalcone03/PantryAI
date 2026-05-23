@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, setDoc, Timestamp } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import type { UserProfile } from "@/types/firestore";  //Importa l'interfaccia UserProfile per tipizzare
 
@@ -33,7 +33,7 @@ export default function RedirectLoginPage() {
         await setDoc(doc(db, "users", userAuth.uid), userProfile, { merge: true }); //sovrascrive o  crea il documento con i dati dell'utente, merge serve per unire con eventuali dati esistenti
         setStatus(`Profilo salvato correttamente in users/${userAuth.uid}`);
         // Dopo aver salvato il profilo, avvia il routing verso l'area protetta.
-        // `AppGuard` nella root dell'area `(app)` deciderà se mandare a `/access-to-pantry` o `/inventario`.
+        // "AppGuard" deciderà se mandare a `/access-to-pantry` o `/inventario`.
         router.replace("/inventario");
       } catch (saveError) {
         console.error(saveError);
@@ -43,7 +43,7 @@ export default function RedirectLoginPage() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-zinc-50 p-6">
