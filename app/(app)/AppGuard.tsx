@@ -24,14 +24,14 @@ export default function AppGuard({ children }: { children: React.ReactNode }) {
 
         // Lettura del profilo utente da Firestore
         const userDoc = doc(db, "users", userAuth.uid); //Prendo il riferimento al documento dell'utente
-        const snap = await getDoc(userDoc); //Leggo il documento, snap è un oggetto che rappresenta lo stato di esistenza del documento 
+        const snap = await getDoc(userDoc); //Leggo il documento
         const data = snap.exists() ? snap.data() : null; //Se esiste prendo i dati, altrimenti null
 
         // Carico le eventuali dispense collegate all'utente alla variabile
         const pantryIds: string[] | null | undefined = data?.userProfilePantryIds;
 
         if (!pantryIds || pantryIds.length === 0) {
-          // Se nessuna dispensa manda alla pagina di creazione/accesso dispensa
+          // Se nessuna dispensa manda alla pagina access-to-pantry
           console.log(
             `Messaggio da AppGuard: nessuna dispensa trovata per l'utente ${userAuth?.uid}; reindirizzo a /access-to-pantry`
           );
@@ -41,7 +41,7 @@ export default function AppGuard({ children }: { children: React.ReactNode }) {
           // Verifico se l'id della dispensa preferita è tra quelle collegate all'utente, altrimenti usa la prima dispensa disponibile
           const currentPantryId: string | null | undefined = data?.userProfileCurrentPantryId; // L'id della dispensa attiva preferita, se esiste
 
-          // verifico se currenPantryId esoste e fa parte tra quelle dell'utente,
+          // verifico se currenPantryId esiste e fa parte tra quelle dell'utente,
           // se sì lo uso, altrimenti prendo la prima dispensa disponibile tra quelle collegate all'utente
           const toUse = currentPantryId && pantryIds.includes(currentPantryId) ? currentPantryId : pantryIds[0];
 
@@ -59,7 +59,6 @@ export default function AppGuard({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.error("AppGuard error:", err);
-        // In caso di errore lato DB reinderizzo all'onboarding per evitare stati inconsistenti
         router.replace("/access-to-pantry");
         setAllowed(false); //per sicurezza, non permetto di accedere all'area protetta se c'è un errore
       } finally {

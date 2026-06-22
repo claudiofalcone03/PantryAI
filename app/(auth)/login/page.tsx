@@ -1,21 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { signInWithEmailAndPassword, signInWithPopup, createUserWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
-import { LogIn, Mail, Lock, AlertCircle } from "lucide-react";
+import { LogIn, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);  // true = login, false = register
   const [email, setEmail] = useState(""); //stato email per il form di login/registrazione
   const [password, setPassword] = useState(""); //stato password per il form di login/registrazione
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);  //quando è in corso l'autenticazione (true) vengono disattivati i pulsanti
 
   //Login/registrazione con email e password
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setMessage(null);
     setLoading(true);
 
     try {
@@ -38,15 +40,35 @@ export default function LoginPage() {
     }
   };
 
+  //Reset password
+  const handleResetPassword = async () => {
+    setError(null);
+    setMessage(null);
+    if (!email) {
+      setError("Inserisci il tuo indirizzo email nel campo apposito per reimpostare la password.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setMessage("Email per il reset della password inviata! Controlla la tua casella di posta.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Errore durante l'invio dell'email di reset.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   //Login con Google
   const handleGoogleSignIn = async () => {
     setError(null);
+    setMessage(null);
     setLoading(true);
     console.log("Avvio del login con Google tramite signInWithPopup con GoogleAuthProvider");
     try {
       await signInWithPopup(auth, googleProvider);
       console.log("Login con Google è avvenuto con successo");
-      window.location.href = "/redirect-login"; 
+      window.location.href = "/redirect-login";
       //oppure 
       //router.push("/redirect-login")
     } catch (err: unknown) {
@@ -84,6 +106,13 @@ export default function LoginPage() {
           </div>
         )}
 
+        {message && (
+          <div className="mb-6 p-4 rounded-xl bg-green-500/20 border border-green-500/50 flex items-start gap-3 text-white">
+            <CheckCircle className="w-5 h-5 text-green-200 shrink-0 mt-0.5" />
+            <p className="text-sm text-green-100">{message}</p>
+          </div>
+        )}
+
         <form onSubmit={handleAuth} className="space-y-5">
           <div className="space-y-1">
             <label className="text-sm font-medium text-white/90 ml-1">Email</label>
@@ -103,7 +132,19 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-white/90 ml-1">Password</label>
+            <div className="flex justify-between items-center px-1">
+              <label className="text-sm font-medium text-white/90">Password</label>
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  disabled={loading}
+                  className="text-xs text-white/80 hover:text-white hover:underline focus:outline-none transition-colors disabled:opacity-50 disabled:hover:no-underline"
+                >
+                  Hai dimenticato la password?
+                </button>
+              )}
+            </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Lock className="h-5 w-5 text-white/50" />
