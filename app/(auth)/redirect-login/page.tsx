@@ -24,8 +24,8 @@ export default function RedirectLoginPage() {
       const userProfile: UserProfile = {
         userId: userAuth.uid,
         userEmail: userAuth.email ?? "",     //vuota se non disponibile
-        userProfileName: userAuth.displayName ?? undefined,
-        userProfilePhotoURL: userAuth.photoURL ?? undefined,
+        ...(userAuth.displayName && { userProfileName: userAuth.displayName }),
+        ...(userAuth.photoURL && { userProfilePhotoURL: userAuth.photoURL }),
       };
 
       console.log("Salvataggio su Firestore (users/" + userAuth.uid + "):", userProfile);
