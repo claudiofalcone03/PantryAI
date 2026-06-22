@@ -43,7 +43,7 @@ export default function AppGuard({ children }: { children: React.ReactNode }) {
 
           // verifico se currenPantryId esoste e fa parte tra quelle dell'utente,
           // se sì lo uso, altrimenti prendo la prima dispensa disponibile tra quelle collegate all'utente
-          const toUse = currentPantryId && pantryIds.includes(currentPantryId) ? currentPantryId : pantryIds[0]; 
+          const toUse = currentPantryId && pantryIds.includes(currentPantryId) ? currentPantryId : pantryIds[0];
 
           if (!currentPantryId || !pantryIds.includes(currentPantryId)) {
             // Salva il primo id come preferito
@@ -56,8 +56,6 @@ export default function AppGuard({ children }: { children: React.ReactNode }) {
           }
 
           setAllowed(true);
-          //Reiderizza all'inventario
-          router.replace("/inventario");
         }
       } catch (err) {
         console.error("AppGuard error:", err);
