@@ -4,8 +4,33 @@ import { useState } from "react";
 import { signInWithEmailAndPassword, signInWithPopup, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { LogIn, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+const getFirebaseErrorMessage = (err: any): string => {
+  console.error("Errore originale Firebase Auth:", err);
+  const code = err?.code;
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Credenziali non valide. Controlla email e password e riprova.";
+    case "auth/email-already-in-use":
+      return "Questo indirizzo email è già associato a un account.";
+    case "auth/invalid-email":
+      return "L'indirizzo email inserito non è valido.";
+    case "auth/weak-password":
+      return "La password deve contenere almeno 6 caratteri.";
+    case "auth/too-many-requests":
+      return "Troppi tentativi di accesso non riusciti. L'accesso per questo account è temporaneamente disabilitato. Riprova più tardi.";
+    case "auth/user-disabled":
+      return "Questo account è stato disabilitato.";
+    default:
+      return err?.message || "Si è verificato un errore durante l'autenticazione. Riprova.";
+  }
+};
 
 export default function LoginPage() {
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);  // true = login, false = register
   const [email, setEmail] = useState(""); //stato email per il form di login/registrazione
   const [password, setPassword] = useState(""); //stato password per il form di login/registrazione
@@ -13,7 +38,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);  //quando è in corso l'autenticazione (true) vengono disattivati i pulsanti
 
-  //Login/registrazione con email e password
+  //Login e registrazione con email e password
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -25,16 +50,15 @@ export default function LoginPage() {
         console.log("Invio credenziali di login a Firebase Auth:", { email });
         await signInWithEmailAndPassword(auth, email, password);
         console.log("Login con email avvenuto con successo");
-        window.location.href = "/redirect-login";
-        //dovrei effettuare il controllo e o andare in una pagina intermedia ?
+        router.push("/redirect-login");
       } else {
         console.log("Invio credenziali di registrazione a Firebase Auth:", { email });
         await createUserWithEmailAndPassword(auth, email, password);
         console.log("Registrazione mediante email avvenuta con successo");
-        window.location.href = "/redirect-login";
+        router.push("/redirect-login");
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "È avvenuto un errore durante l'autenticazione cone email e password.");
+      setError(getFirebaseErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -53,7 +77,7 @@ export default function LoginPage() {
       await sendPasswordResetEmail(auth, email);
       setMessage("Email per il reset della password inviata! Controlla la tua casella di posta.");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Errore durante l'invio dell'email di reset.");
+      setError(getFirebaseErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -64,15 +88,13 @@ export default function LoginPage() {
     setError(null);
     setMessage(null);
     setLoading(true);
-    console.log("Avvio del login con Google tramite signInWithPopup con GoogleAuthProvider");
+    console.log("Avvio del login con Google tramite popup pagina esterna");
     try {
       await signInWithPopup(auth, googleProvider);
       console.log("Login con Google è avvenuto con successo");
-      window.location.href = "/redirect-login";
-      //oppure 
-      //router.push("/redirect-login")
+      router.push("/redirect-login")
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "È avvenuto un errore durante il login con Google.");
+      setError(getFirebaseErrorMessage(err));
     } finally {
       setLoading(false);
     }
