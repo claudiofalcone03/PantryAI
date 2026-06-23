@@ -13,6 +13,7 @@ export default function ProfilePage() {
 	const [userData, setUserData] = useState<{
 		name: string;
 		email: string;
+		photoURL: string | null;
 	} | null>(null);
 
 	useEffect(() => {
@@ -20,12 +21,14 @@ export default function ProfilePage() {
 			const user = auth.currentUser;
 			if (user) {
 				let name = user.displayName || "Utente sconosciuto";
+				let photoURL = user.photoURL || null;
 
 				try {
 					const userDoc = await getDoc(doc(db, "users", user.uid));
 					if (userDoc.exists()) {
 						const data = userDoc.data() as UserProfile;
 						name = data.userProfileName || name; //Usa il nome dal profilo se disponibile altrimenti quello da auth	
+						photoURL = data.userProfilePhotoURL || photoURL;
 					}
 				} catch (error) {
 					console.error("Errore nel recupero dati utente:", error);
@@ -33,7 +36,8 @@ export default function ProfilePage() {
 
 				setUserData({
 					name: name || "Nome utente non disponibile",
-					email: user.email || "Email non disponibile"
+					email: user.email || "Email non disponibile",
+					photoURL: photoURL
 				});
 			}
 		};
@@ -57,11 +61,17 @@ export default function ProfilePage() {
 
 				<div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-gray-200 dark:border-zinc-800 mb-8">
 					<div className="flex flex-col items-center">
-						<div className="w-24 h-24 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
-							
-							{/* Sostituire eventualmente con immagine profilo se disponibile da google auth */}
-							<User className="w-12 h-12 text-blue-600 dark:text-blue-400" />
-							
+						<div className="w-24 h-24 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4 overflow-hidden">
+							{userData?.photoURL ? (
+								<img 
+									src={userData.photoURL} 
+									alt="Foto profilo" 
+									className="w-full h-full object-cover"
+									referrerPolicy="no-referrer"
+								/>
+							) : (
+								<User className="w-12 h-12 text-blue-600 dark:text-blue-400" />
+							)}
 						</div>
 
 						<h2 className="text-xl font-semibold text-gray-900 dark:text-white text-center">
