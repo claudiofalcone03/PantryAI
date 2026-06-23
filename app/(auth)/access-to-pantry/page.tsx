@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { createPantry, joinPantryWithCode } from "@/lib/firestore";
+import { createPantry, joinPantryWithCode } from "@/lib/firestoreTS";
 
 export default function AccessToPantryPage() {
   const router = useRouter();
@@ -14,10 +14,10 @@ export default function AccessToPantryPage() {
 
   const [pantryName, setPantryName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
-  
+
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
-  
+
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -79,14 +79,14 @@ export default function AccessToPantryPage() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 p-6">
       <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8">
-        
+
         {/* Colonna Creazione */}
         <section className="bg-white p-8 rounded-2xl shadow-sm border border-zinc-200 flex flex-col">
           <h2 className="text-2xl font-semibold text-zinc-900 mb-2">Crea Nuova Dispensa</h2>
           <p className="text-sm text-zinc-500 mb-6 flex-grow">
             Inizia da zero. Crea una nuova dispensa e invita i tuoi coinquilini o familiari condividendo il codice d&apos;invito.
           </p>
-          
+
           <form onSubmit={handleCreate} className="flex flex-col gap-4">
             <div>
               <label htmlFor="pantryName" className="block text-sm font-medium text-zinc-700 mb-1">
@@ -118,7 +118,7 @@ export default function AccessToPantryPage() {
           <p className="text-sm text-zinc-500 mb-6 flex-grow">
             Hai ricevuto un codice d&apos;  invito? Inseriscilo qui sotto per unirti a una dispensa già esistente e collaborare.
           </p>
-          
+
           <form onSubmit={handleJoin} className="flex flex-col gap-4">
             <div>
               <label htmlFor="inviteCode" className="block text-sm font-medium text-zinc-700 mb-1">

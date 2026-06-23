@@ -50,7 +50,7 @@ export default function LoginPage() {
     setMessage(null);
 
     if (!isLogin && password.length < minPasswordLength) {
-      setError(`La password deve contenere almeno ${minPasswordLength} caratteri.`); //Questo messaggio non dovrebbe mai uscire, se il controllo del campo funziona
+      setError(`La password deve contenere almeno ${minPasswordLength} caratteri.`); //Questo messaggio non dovrebbe mai uscire, se il controllo del campo HTML funziona
       return;
     }
 
@@ -94,7 +94,7 @@ export default function LoginPage() {
     }
   };
 
-  //Login con Google
+  //GoogleAuth
   const handleGoogleSignIn = async () => {
     setError(null);
     setMessage(null);

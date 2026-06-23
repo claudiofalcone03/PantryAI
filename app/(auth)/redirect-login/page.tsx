@@ -19,7 +19,7 @@ export default function RedirectLoginPage() {
         setStatus("Accesso non completato");
         return;
       }
-  //userAuth è l'oggetto restituito da Firebase Authentication 
+      //userAuth è l'oggetto restituito da Firebase Authentication 
 
       const userProfile: UserProfile = {
         userId: userAuth.uid,
@@ -50,7 +50,7 @@ export default function RedirectLoginPage() {
       <section className="w-full max-w-xl rounded-3xl border border-zinc-200 bg-white p-8 shadow-xl">
         <div className="space-y-4 text-center">
           <p className="text-sm font-medium uppercase tracking-[0.2em] text-zinc-500">Firestore test</p>
-          <h1 className="text-3xl font-semibold text-zinc-900">Verifica collegamento databsse firebase a user</h1>
+          <h1 className="text-3xl font-semibold text-zinc-900">Verifica collegamento del database Firestore a user</h1>
           <p className="text-base leading-7 text-zinc-600">
             Questa pagina salva o aggiorna il documento utente in users/{"{userId}"} appena rileva l&apos;utente autenticato.
           </p>
@@ -79,7 +79,3 @@ export default function RedirectLoginPage() {
     </main>
   );
 }
-
-
-//Se non ha dispense, vai a app/(auth)/access-to-pantry
-//Se ha dispense, apri la dispensa preferita.

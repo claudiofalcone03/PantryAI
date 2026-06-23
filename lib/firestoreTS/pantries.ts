@@ -1,6 +1,6 @@
-import { db } from "./firebase";
+import { db } from "../firebase";
 import { collection, doc, setDoc, query, where, getDocs, arrayUnion, serverTimestamp, Timestamp } from "firebase/firestore";
-import type { PantryMember } from "../types/firestore/pantryMember";
+import type { PantryMember } from "../../types/firestore/pantryMember";
 
 //Funzione genera codice invito, un codice alfanumerico di 6 caratteri in maiuscolo
 function generateInviteCode() {
