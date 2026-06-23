@@ -3,46 +3,57 @@
 import { useState } from "react";
 import { signInWithEmailAndPassword, signInWithPopup, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
-import { LogIn, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
+import { LogIn, Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-const getFirebaseErrorMessage = (err: any): string => {
-  console.error("Errore originale Firebase Auth:", err);
-  const code = err?.code;
-  switch (code) {
-    case "auth/invalid-credential":
-    case "auth/wrong-password":
-    case "auth/user-not-found":
-      return "Credenziali non valide. Controlla email e password e riprova.";
-    case "auth/email-already-in-use":
-      return "Questo indirizzo email è già associato a un account.";
-    case "auth/invalid-email":
-      return "L'indirizzo email inserito non è valido.";
-    case "auth/weak-password":
-      return "La password deve contenere almeno 6 caratteri.";
-    case "auth/too-many-requests":
-      return "Troppi tentativi di accesso non riusciti. L'accesso per questo account è temporaneamente disabilitato. Riprova più tardi.";
-    case "auth/user-disabled":
-      return "Questo account è stato disabilitato.";
-    default:
-      return err?.message || "Si è verificato un errore durante l'autenticazione. Riprova.";
-  }
-};
+const minPasswordLength = 6; //Questo è un controllo solo a livello UI
+
 
 export default function LoginPage() {
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);  // true = login, false = register
   const [email, setEmail] = useState(""); //stato email per il form di login/registrazione
   const [password, setPassword] = useState(""); //stato password per il form di login/registrazione
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);  //quando è in corso l'autenticazione (true) vengono disattivati i pulsanti
+
+  //Casistiche errore firebase auth
+  const getFirebaseErrorMessage = (err: unknown): string => {
+    console.error("Errore originale Firebase Auth:", err);
+    const code = (err as { code?: string }).code;
+    switch (code) {
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+        return "Credenziali non valide. Controlla email e password e riprova.";
+      case "auth/email-already-in-use":
+        return "Questo indirizzo email è già associato a un account.";
+      case "auth/invalid-email":
+        return "L'indirizzo email inserito non è valido.";
+      case "auth/weak-password":
+        return "La password deve contenere almeno 6 caratteri.";
+      case "auth/too-many-requests":
+        return "Troppi tentativi di accesso non riusciti. L'accesso per questo account è temporaneamente disabilitato. Riprova più tardi.";
+      case "auth/user-disabled":
+        return "Questo account è stato disabilitato.";
+      default:
+        return (err as { message?: string }).message || "Si è verificato un errore durante l'autenticazione. Riprova.";
+    }
+  };
 
   //Login e registrazione con email e password
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
+
+    if (!isLogin && password.length < minPasswordLength) {
+      setError(`La password deve contenere almeno ${minPasswordLength} caratteri.`); //Questo messaggio non dovrebbe mai uscire, se il controllo del campo funziona
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -146,7 +157,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
+                required //Validazione email HTML
                 className="w-full pl-11 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all"
                 placeholder="you@example.com"
               />
@@ -172,13 +183,22 @@ export default function LoginPage() {
                 <Lock className="h-5 w-5 text-white/50" />
               </div>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full pl-11 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all"
+                minLength={minPasswordLength}
+                required //Validazione minimo lunghezza password 
+                className="w-full pl-11 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all"
                 placeholder="*******"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword((currentValue) => !currentValue)}
+                aria-label={showPassword ? "Nascondi password" : "Mostra password"}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-white/60 hover:text-white transition-colors"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
           </div>
 
