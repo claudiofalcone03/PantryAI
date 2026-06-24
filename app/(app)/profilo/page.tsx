@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { User, LogOut, Layers, FileDown, Trash, Pencil, Copy, DoorOpen, Plus, UserPlus } from "lucide-react";
+import { User, LogOut, Layers, FileDown, Trash, Pencil, Copy, DoorOpen, Plus, UserPlus, CheckCircle } from "lucide-react";
 import Image from "next/image";
 import type { UserProfile } from "@/types/firestore/userProfile";
 import type { Pantry } from "@/types/firestore/pantry";
-import { getUserPantries, leavePantry, createPantry, joinPantryWithCode } from "@/lib/firestore/pantries";
+import { getUserPantries, leavePantry, createPantry, joinPantryWithCode, setCurrentPantry } from "@/lib/firestore/pantries";
 
 export default function ProfilePage() {
 	const router = useRouter();
@@ -18,6 +18,7 @@ export default function ProfilePage() {
 		name: string;
 		email: string;
 		photoURL: string | null;
+		currentPantryId?: string | null;
 	} | null>(null);
 	const [pantries, setPantries] = useState<Pantry[]>([]);  //Vettore dispense utente
 
@@ -27,13 +28,15 @@ export default function ProfilePage() {
 			if (user) {
 				let name = user.displayName || "Utente sconosciuto";
 				let photoURL = user.photoURL || null;
+				let currentPantryId = null;
 
 				try {
 					const userDoc = await getDoc(doc(db, "users", user.uid));
 					if (userDoc.exists()) {
-						const data = userDoc.data() as UserProfile;
+						const data = userDoc.data() as UserProfile & { userProfileCurrentPantryId?: string };
 						name = data.userProfileName || name; //Usa il nome dal profilo se disponibile altrimenti quello da auth	
 						photoURL = data.userProfilePhotoURL || photoURL;
+						currentPantryId = data.userProfileCurrentPantryId || null;
 					}
                     
                     const userPantries = await getUserPantries(user.uid); //Funzione importata 
@@ -45,7 +48,8 @@ export default function ProfilePage() {
 				setUserData({
 					name: name || "Nome utente non disponibile",
 					email: user.email || "Email non disponibile",
-					photoURL: photoURL
+					photoURL: photoURL,
+					currentPantryId: currentPantryId
 				});
 			}
 		};
@@ -122,6 +126,20 @@ export default function ProfilePage() {
 		}
 	};
 
+	//Funzione imposta dispensa corrente
+	const handleSetCurrentPantry = async (pantryId?: string) => {
+		if (!pantryId) return;
+		const user = auth.currentUser;
+		if (!user) return;
+		try {
+			await setCurrentPantry(user.uid, pantryId);
+			setUserData(prev => prev ? { ...prev, currentPantryId: pantryId } : null);
+		} catch (error: any) {
+			console.error("Errore durante l'impostazione:", error);
+			alert("Errore: " + error.message);
+		}
+	};
+
 	return (
 		<main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
 			<div className="px-4 py-8 max-w-md mx-auto">
@@ -188,6 +206,13 @@ export default function ProfilePage() {
 												</div>
 											</div>
 											<div className="flex items-center gap-2">
+												<button
+													onClick={() => handleSetCurrentPantry(pantry.pantryId)}
+													className={`p-2 rounded-lg transition-colors ${userData?.currentPantryId === pantry.pantryId ? "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30" : "text-gray-400 hover:text-green-600 dark:text-gray-500 dark:hover:text-green-400 bg-gray-100 hover:bg-green-50 dark:bg-zinc-800 dark:hover:bg-green-900/30"}`}
+													title={userData?.currentPantryId === pantry.pantryId ? "Dispensa corrente" : "Imposta come dispensa corrente"}
+												>
+													<CheckCircle className="w-4 h-4" />
+												</button>
 												<button
 													onClick={() => handleCopyCode(pantry.pantryInviteCode)}
 													className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 bg-gray-100 hover:bg-blue-50 dark:bg-zinc-800 dark:hover:bg-blue-900/30 rounded-lg transition-colors"

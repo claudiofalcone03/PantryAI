@@ -155,3 +155,11 @@ export async function leavePantry(userId: string, pantryId: string) {
 
   await batch.commit(); //Salvataggio delle modifiche in batch
 }
+
+//Imposta la dispensa corrente
+export async function setCurrentPantry(userId: string, pantryId: string) {
+  const userRef = doc(db, "users", userId);
+  await setDoc(userRef, {
+    userProfileCurrentPantryId: pantryId
+  }, { merge: true });
+}
