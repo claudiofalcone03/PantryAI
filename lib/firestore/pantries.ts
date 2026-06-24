@@ -1,5 +1,6 @@
 import { db } from "../firebase";
-import { collection, doc, setDoc, query, where, getDocs, arrayUnion, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, doc, setDoc, query, where, getDocs, arrayUnion, serverTimestamp, Timestamp, getDoc, arrayRemove, writeBatch } from "firebase/firestore";
+import type { Pantry } from "../../types/firestore/pantry";
 import type { PantryMember } from "../../types/firestore/pantryMember";
 
 //Funzione genera codice invito, un codice alfanumerico di 6 caratteri in maiuscolo
@@ -81,4 +82,76 @@ export async function joinPantryWithCode(userId: string, inviteCode: string, use
   }, { merge: true });
 
   return pantryDoc.id;
+}
+
+//Recupero delle dispense di cui l'utente fa parte
+export async function getUserPantries(userId: string): Promise<Pantry[]> {
+  const userRef = doc(db, "users", userId);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists()) return []; //Se il documento dell'utente non esiste restituisce array vuoto
+
+  const pantryIds = userSnap.data().userProfilePantryIds || []; 
+  if (pantryIds.length === 0) return []; //Se l'utente non ha dispense, restituisce array vuoto
+
+  const pantries: Pantry[] = [];
+
+  // Recupero i dettagli di ciascuna dispensa
+  for (const pId of pantryIds) {
+    const pantryRef = doc(db, "pantries", pId);
+    const pantrySnap = await getDoc(pantryRef);
+    if (pantrySnap.exists()) {
+      pantries.push({ ...pantrySnap.data(), pantryId: pantrySnap.id } as Pantry);
+    }
+  }
+
+  return pantries;
+}
+
+//Abbandono di una dispensa
+export async function leavePantry(userId: string, pantryId: string) {
+  const pantryRef = doc(db, "pantries", pantryId);
+  const userRef = doc(db, "users", userId);
+
+  const pantrySnap = await getDoc(pantryRef);
+  if (!pantrySnap.exists()) throw new Error("Dispensa non trovata");
+
+  const pantryData = pantrySnap.data() as Pantry;
+  const members = pantryData.pantryMembers || [];
+  
+  const memberObj = members.find(m => m.memberId === userId); //L'utente che vuole uscire
+  if (!memberObj) throw new Error("Non sei membro di questa dispensa");
+
+  if (memberObj.memberRole === "owner" && members.length === 1) {
+    // Se è l'unico membro e proprietario elimino la dispensa ?. Assicurati che sta un messaggio di conferma prima di eliminare
+    // Messaggio modificato se l'utente è l'unico proprietario e membro della dispensa ?
+  }
+
+  const batch = writeBatch(db);  //Il batch permette di raggruppare più operazioni 
+  
+  // Rimozione utente dalla dispensa
+  batch.update(pantryRef, {
+    pantryMembers: arrayRemove(memberObj)
+  });
+
+  // Rimozione della dispensa dall'utente
+  const userSnap = await getDoc(userRef);
+  let newCurrentPantryId = null;
+  if (userSnap.exists()) {
+    const userData = userSnap.data();
+    if (userData.userProfileCurrentPantryId === pantryId) {
+      // Se era la dispensa corrente, ne impostiamo un'altra, se presente, altrimenti null
+      const remainingPantries = (userData.userProfilePantryIds || []).filter((id: string) => id !== pantryId);
+      newCurrentPantryId = remainingPantries.length > 0 ? remainingPantries[0] : null;
+      batch.update(userRef, {
+        userProfilePantryIds: arrayRemove(pantryId),
+        userProfileCurrentPantryId: newCurrentPantryId
+      });
+    } else {
+      batch.update(userRef, {
+        userProfilePantryIds: arrayRemove(pantryId)
+      });
+    }
+  }
+
+  await batch.commit(); //Salvataggio delle modifiche in batch
 }

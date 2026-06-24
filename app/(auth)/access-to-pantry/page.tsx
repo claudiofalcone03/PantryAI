@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { createPantry, joinPantryWithCode } from "@/lib/firestoreTS";
+import { createPantry, joinPantryWithCode } from "@/lib/firestore/pantries";
 
 export default function AccessToPantryPage() {
   const router = useRouter();
