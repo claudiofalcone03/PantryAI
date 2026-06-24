@@ -44,7 +44,7 @@ export default function TestFirestorePage() {
             productQuantity: 1,
             productCategory: "Categoria Test",
             addToShoppingList: false,
-            productPantryId: "test_pantry_123"
+            productPantryId: "cHQgPil0u8NjKKGUbN74"
         };
 
         try {
