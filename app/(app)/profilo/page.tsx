@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { User, LogOut, Layers, FileDown, Trash, Pencil, Copy, DoorOpen, Plus, UserPlus, CheckCircle } from "lucide-react";
+import { User, LogOut, Layers, FileDown, Trash, Pencil, Copy, DoorOpen, Plus, UserPlus, CheckCircle, Settings } from "lucide-react";
 import Image from "next/image";
 import type { UserProfile } from "@/types/firestore/userProfile";
 import type { Pantry } from "@/types/firestore/pantry";
@@ -212,6 +212,13 @@ export default function ProfilePage() {
 													title={userData?.currentPantryId === pantry.pantryId ? "Dispensa corrente" : "Imposta come dispensa corrente"}
 												>
 													<CheckCircle className="w-4 h-4" />
+												</button>
+												<button
+													onClick={() => router.push(`/dispense/${pantry.pantryId}/impostazioni`)}
+													className="p-2 text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 bg-gray-100 hover:bg-purple-50 dark:bg-zinc-800 dark:hover:bg-purple-900/30 rounded-lg transition-colors"
+													title="Impostazioni dispensa"
+												>
+													<Settings className="w-4 h-4" />
 												</button>
 												<button
 													onClick={() => handleCopyCode(pantry.pantryInviteCode)}
