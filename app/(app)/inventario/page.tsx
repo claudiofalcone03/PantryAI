@@ -8,20 +8,23 @@ import type { Product } from "@/types/firestore/product";
 import { InventoryTopBar } from "@/components/InventoryTopBar";
 import { ProductListItem } from "@/components/ProductListItem";
 import { ProductEditPopup } from "@/components/ProductEditPopup";
-import { Search, Loader } from "lucide-react";
+import { Search, Loader, PackageOpen, ArrowDownUp, ArrowDown, ArrowUp } from "lucide-react";
 
 export default function InventarioPage() {
   const [loading, setLoading] = useState(true);
   const [pantryName, setPantryName] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [showOnlyOpened, setShowOnlyOpened] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"ascendente" | "discendente" | "none">("none");
+
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isPopUpOpen, setPopUpOpen] = useState(false);
 
   const fetchInventoryData = React.useCallback(async () => {
     if (!auth.currentUser) return;
-    
+
     try {
       const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
       const userData = userDoc.data();
@@ -51,15 +54,15 @@ export default function InventarioPage() {
 
   useEffect(() => {
     let mounted = true; //Oer capire se il componente è montato nel DOM
-    
+
     const init = async () => {
       if (mounted) {
         await fetchInventoryData();
       }
     };
-    
+
     init();
-    
+
     return () => {
       mounted = false;
     };
@@ -71,10 +74,45 @@ export default function InventarioPage() {
     setPopUpOpen(true);
   };
 
-  //Ricerca prodotti
-  const filteredProducts = products.filter(p => 
-    p.productName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Estrazione categorie
+  const categories = React.useMemo(() => {
+    const cates = products.map(p => p.productCategory).filter(Boolean) as string[];
+    return Array.from(new Set(cates)).sort();
+  }, [products]);
+
+  //Ricerca e filtro prodotti
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.productName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === "" || p.productCategory === selectedCategory;
+    const matchesOpened = showOnlyOpened ? !!p.productOpenedAt : true;
+    return matchesSearch && matchesCategory && matchesOpened;
+  });
+
+  //Ordinamento per data
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (sortOrder === "none") return 0;
+
+    const getExpiry = (product: Product) => {
+      let expiry: Date | null = null;
+      if (product.productOpenedExpiryAt) {
+        expiry = typeof (product.productOpenedExpiryAt as any).toDate === 'function'
+          ? (product.productOpenedExpiryAt as any).toDate()
+          : new Date(product.productOpenedExpiryAt as any);
+      } else if (product.expiryDateProduct) {
+        expiry = typeof (product.expiryDateProduct as any).toDate === 'function'
+          ? (product.expiryDateProduct as any).toDate()
+          : new Date(product.expiryDateProduct as any);
+      }
+      return expiry ? expiry.getTime() : Infinity;
+    };
+
+    const timeA = getExpiry(a);
+    const timeB = getExpiry(b);
+
+    if (sortOrder === "ascendente") return timeA - timeB;
+    if (sortOrder === "discendente") return timeB - timeA;
+    return 0;
+  });
 
   if (loading) {
     return (
@@ -92,35 +130,89 @@ export default function InventarioPage() {
       <InventoryTopBar pantryName={pantryName || "Nessuna dispensa selezionata"} />
 
       <main className="flex-1 p-4 w-full max-w-3xl mx-auto flex flex-col gap-4">
-        {/* Barra di ricerca */}
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-zinc-400" />
+        {/* Barra di ricerca e filtri */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-zinc-400" />
+            </div>
+            <input
+              type="text"
+              className="block w-full pl-10 pr-3 py-3 border border-zinc-200 dark:border-zinc-800 rounded-2xl leading-5 bg-white dark:bg-zinc-900 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm transition-colors shadow-sm text-zinc-900 dark:text-zinc-100"
+              placeholder="Cerca prodotti..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-3 border border-zinc-200 dark:border-zinc-800 rounded-2xl leading-5 bg-white dark:bg-zinc-900 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm transition-colors shadow-sm text-zinc-900 dark:text-zinc-100"
-            placeholder="Cerca prodotti..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+
+          <button
+            onClick={() => setShowOnlyOpened(!showOnlyOpened)}
+            title={showOnlyOpened ? "Mostra tutti" : "Mostra solo aperti"}
+            className={`p-3 rounded-2xl border transition-colors shrink-0 ${showOnlyOpened
+              ? "bg-green-100 border-green-200 text-green-700 dark:bg-green-900/40 dark:border-green-800 dark:text-green-400"
+              : "bg-white border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-500 dark:hover:text-zinc-300 dark:hover:bg-zinc-800"
+              }`}
+          >
+            <PackageOpen className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={() => setSortOrder(prev => prev === "none" ? "ascendente" : prev === "ascendente" ? "discendente" : "none")}
+            title={sortOrder === "none" ? "Ordina per scadenza" : sortOrder === "ascendente" ? "Scadenza: più vicina" : "Scadenza: più lontana"}
+            className={`p-3 rounded-2xl border transition-colors flex items-center justify-center shrink-0 min-w-[46px] ${sortOrder !== "none"
+              ? "bg-green-100 border-green-200 text-green-700 dark:bg-green-900/40 dark:border-green-800 dark:text-green-400"
+              : "bg-white border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-500 dark:hover:text-zinc-300 dark:hover:bg-zinc-800"
+              }`}
+          >
+            {sortOrder === "none" && <ArrowDownUp className="w-5 h-5" />}
+            {sortOrder === "ascendente" && <ArrowUp className="w-5 h-5" />}
+            {sortOrder === "discendente" && <ArrowDown className="w-5 h-5" />}
+          </button>
         </div>
+
+        {/* Filtro Categorie */}
+        {categories.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+            <button
+              onClick={() => setSelectedCategory("")}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border ${selectedCategory === ""
+                ? "bg-green-600 text-white border-green-600 dark:bg-green-600"
+                : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                }`}
+            >
+              Tutti
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors border ${selectedCategory === cat
+                  ? "bg-green-600 text-white border-green-600 dark:bg-green-600"
+                  : "bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Lista prodotti */}
         <div className="flex-1 overflow-y-auto">
-          {filteredProducts.length === 0 ? (
+          {sortedProducts.length === 0 ? (
             <div className="text-center py-10">
               <p className="text-zinc-500 dark:text-zinc-400">
-                {searchQuery ? "Nessun prodotto trovato per la ricerca." : "La tua dispensa è vuota. Aggiungi un prodotto!"}
+                {(searchQuery || selectedCategory || showOnlyOpened) ? "Nessun prodotto trovato per i filtri selezionati." : "La tua dispensa è vuota. Aggiungi un prodotto!"}
               </p>
             </div>
           ) : (
             <div className="pb-24">
-              {filteredProducts.map(product => (
-                <ProductListItem 
-                  key={product.productId} 
-                  product={product} 
-                  onClick={() => handleProductClick(product)} 
+              {sortedProducts.map(product => (
+                <ProductListItem
+                  key={product.productId}
+                  product={product}
+                  onClick={() => handleProductClick(product)}
+                  onProductUpdated={fetchInventoryData}
                 />
               ))}
             </div>
@@ -128,7 +220,7 @@ export default function InventarioPage() {
         </div>
       </main>
 
-      <ProductEditPopup 
+      <ProductEditPopup
         isOpen={isPopUpOpen}
         onClose={() => setPopUpOpen(false)}
         product={selectedProduct}
