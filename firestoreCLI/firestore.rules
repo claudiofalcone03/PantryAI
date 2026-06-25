@@ -2,12 +2,49 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isPantryMember(pantryId) {
+      // Controlla se l'id della dispensa è nell'array delle dispense dell'utente
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc != null && pantryId in userDoc.data.userProfilePantryIds;
+    }
 
-    // ⚠️ REGOLA TEMPORANEA — scade il 18 Giugno 2026
-    // Permette lettura e scrittura a tutti (solo per sviluppo).
-    // Sostituire con regole specifiche prima del deploy in produzione.
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2026, 6, 18);
+    match /users/{userId} {
+      // Lettura permessa a tutti per mostrare i nomi dei membri
+      allow read: if isAuthenticated();
+      // Scrittura permessa solo al proprietario del profilo
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /pantries/{pantryId} {
+      // Lettura e creazione dispense consentita a tutti gli utenti loggati
+      //Per cercare la dispensa a cui unirsi
+      allow read, create: if isAuthenticated();
+      
+      // Eliminazione consentita solo dall'owner
+      allow delete: if isAuthenticated() && resource.data.pantryOwnerId == request.auth.uid;
+      
+      // Modifica consentita all'owner e ai membri della dispensa, ma solo per i campi pantryMembers e pantryCategories
+      allow update: if isAuthenticated() && (
+        resource.data.pantryOwnerId == request.auth.uid || 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pantryMembers', 'pantryCategories'])
+      );
+    }
+
+    match /products/{productId} {
+      // Accesso ai prodotti solo se si è membri della dispensa 
+      allow read, update, delete: if isAuthenticated() && isPantryMember(resource.data.productPantryId);
+      allow create: if isAuthenticated() && isPantryMember(request.resource.data.productPantryId);
+    }
+
+    match /shoppingListItems/{itemId} {
+      // Accesso alla lista della spesa solo se si è membri della dispensa 
+      allow read, update, delete: if isAuthenticated() && isPantryMember(resource.data.listItemPantryId);
+      allow create: if isAuthenticated() && isPantryMember(request.resource.data.listItemPantryId);
     }
 
   }
