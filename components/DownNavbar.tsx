@@ -19,7 +19,7 @@ export function DownNavbar() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-around h-16 px-1 sm:px-2">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`); //URL corrente e relative sottopagine
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`) || (item.name === "Profilo" && pathname.includes("/impostazioni")); //URL corrente e relative sottopagine
           const Icon = item.icon;
 
           return (

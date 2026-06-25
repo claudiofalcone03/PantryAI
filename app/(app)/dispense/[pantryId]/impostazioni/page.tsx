@@ -6,7 +6,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import {
   Trash, Users, Plus, X, Pencil, ArrowLeft, Copy,
-  UserMinus, ShieldAlert, Crown, User as UserIcon
+  UserMinus, Crown, User as UserIcon
 } from "lucide-react";
 import { type Pantry, DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantry";
 import {
@@ -352,7 +352,7 @@ export default function PantrySettingsPage() {
                         {isMe && <span className="text-xs bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-md">Tu</span>}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
-                        {member.memberRole === "owner" ? <Crown className="w-3.5 h-3.5 text-yellow-500" /> : <ShieldAlert className="w-3.5 h-3.5 text-blue-500" />}
+                        {member.memberRole === "owner" ? <Crown className="w-3.5 h-3.5 text-yellow-500" /> : <Pencil className="w-3.5 h-3.5 text-blue-500" />}
                         <span className="capitalize">{member.memberRole}</span>
                       </p>
                     </div>
