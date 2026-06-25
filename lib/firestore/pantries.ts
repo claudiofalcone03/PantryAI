@@ -1,6 +1,6 @@
 import { db } from "../firebase";
 import { collection, doc, setDoc, query, where, getDocs, arrayUnion, serverTimestamp, Timestamp, getDoc, arrayRemove, writeBatch } from "firebase/firestore";
-import type { Pantry } from "../../types/firestore/pantry";
+import { type Pantry, DEFAULT_PANTRY_CATEGORIES } from "../../types/firestore/pantry";
 import type { PantryMember } from "../../types/firestore/pantryMember";
 
 //Funzione genera codice invito, un codice alfanumerico di 6 caratteri in maiuscolo
@@ -19,6 +19,7 @@ export async function createPantry(userId: string, pantryName: string, userProfi
     pantryOwnerId: userId,
     pantryCreatedAt: serverTimestamp(),
     pantryInviteCode: inviteCode,
+    pantryCategories: DEFAULT_PANTRY_CATEGORIES,
     pantryMembers: [{
       memberId: userId,
       memberRole: "owner",
@@ -90,7 +91,7 @@ export async function getUserPantries(userId: string): Promise<Pantry[]> {
   const userSnap = await getDoc(userRef);
   if (!userSnap.exists()) return []; //Se il documento dell'utente non esiste restituisce array vuoto
 
-  const pantryIds = userSnap.data().userProfilePantryIds || []; 
+  const pantryIds = userSnap.data().userProfilePantryIds || [];
   if (pantryIds.length === 0) return []; //Se l'utente non ha dispense, restituisce array vuoto
 
   const pantries: Pantry[] = [];
@@ -117,7 +118,7 @@ export async function leavePantry(userId: string, pantryId: string) {
 
   const pantryData = pantrySnap.data() as Pantry;
   const members = pantryData.pantryMembers || [];
-  
+
   const memberObj = members.find(m => m.memberId === userId); //L'utente che vuole uscire
   if (!memberObj) throw new Error("Non sei membro di questa dispensa");
 
@@ -127,7 +128,7 @@ export async function leavePantry(userId: string, pantryId: string) {
   }
 
   const batch = writeBatch(db);  //Il batch permette di raggruppare più operazioni 
-  
+
   // Rimozione utente dalla dispensa
   batch.update(pantryRef, {
     pantryMembers: arrayRemove(memberObj)

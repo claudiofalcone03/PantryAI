@@ -11,9 +11,10 @@ interface ProductEditPopupProps {
   onClose: () => void;
   product: Product | null;
   onProductUpdated: () => void;
+  pantryCategories?: string[];
 }
 
-export function ProductEditPopup({ isOpen, onClose, product, onProductUpdated }: ProductEditPopupProps) {
+export function ProductEditPopup({ isOpen, onClose, product, onProductUpdated, pantryCategories = [] }: ProductEditPopupProps) {
   if (!isOpen || !product) return null;
 
   return (
@@ -22,6 +23,7 @@ export function ProductEditPopup({ isOpen, onClose, product, onProductUpdated }:
       product={product}
       onClose={onClose}
       onProductUpdated={onProductUpdated}
+      pantryCategories={pantryCategories}
     />
   );
 }
@@ -30,10 +32,12 @@ function ProductEditPopupContent({
   product,
   onClose,
   onProductUpdated,
+  pantryCategories,
 }: {
   product: Product;
   onClose: () => void;
   onProductUpdated: () => void;
+  pantryCategories: string[];
 }) {
   const initialExpiryDate = (() => {
     if (!product.expiryDateProduct) return ""; //Verifica se la data di scadenza è presente
@@ -191,13 +195,16 @@ function ProductEditPopupContent({
             </div>
             <div className="flex-1">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Categoria</label>
-              <input
-                type="text"
+              <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="es. Latticini"
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
+                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none"
+              >
+                <option value="" disabled>Seleziona una categoria</option>
+                {pantryCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
           </div>
 

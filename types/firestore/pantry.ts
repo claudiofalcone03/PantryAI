@@ -13,3 +13,8 @@ export interface Pantry {
   pantryInviteCode?: string;
   pantryCategories?: string[]; //categorie nella dispensa
 }
+
+export const DEFAULT_PANTRY_CATEGORIES = [
+  "Latticini", "Carne", "Pesce", "Frutta", "Verdura", "Bevande", "Dolci", "Snack", "Pasta", "Surgelati",
+  "Altro"
+];

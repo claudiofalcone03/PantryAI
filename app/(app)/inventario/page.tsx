@@ -4,7 +4,8 @@ import React, { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { getProductsByPantry } from "@/lib/firestore/products";
-import type { Product } from "@/types/firestore/product";
+import { type Product } from "@/types/firestore/product";
+import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantry";
 import { InventoryTopBar } from "@/components/InventoryTopBar";
 import { ProductListItem } from "@/components/ProductListItem";
 import { ProductEditPopup } from "@/components/ProductEditPopup";
@@ -13,6 +14,7 @@ import { Search, Loader, PackageOpen, ArrowDownUp, ArrowDown, ArrowUp } from "lu
 export default function InventarioPage() {
   const [loading, setLoading] = useState(true);
   const [pantryName, setPantryName] = useState("");
+  const [pantryCategories, setPantryCategories] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -35,10 +37,12 @@ export default function InventarioPage() {
         return;
       }
 
-      //Recupero nome dispensa
+      //Recupero nome dispensa e categorie
       const pantryDoc = await getDoc(doc(db, "pantries", currentPantryId));
       if (pantryDoc.exists()) {
-        setPantryName(pantryDoc.data().pantryName || "Dispensa unknown");
+        const data = pantryDoc.data();
+        setPantryName(data.pantryName || "Dispensa unknown");
+        setPantryCategories(data.pantryCategories?.length > 0 ? data.pantryCategories : DEFAULT_PANTRY_CATEGORIES);
       }
 
       // Caricamento prodotti
@@ -225,6 +229,7 @@ export default function InventarioPage() {
         onClose={() => setPopUpOpen(false)}
         product={selectedProduct}
         onProductUpdated={fetchInventoryData}
+        pantryCategories={pantryCategories}
       />
     </div>
   );
