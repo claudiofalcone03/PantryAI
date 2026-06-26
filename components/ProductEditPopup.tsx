@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
-import { X, Trash2, Save, PackageOpen } from "lucide-react";
+import { X, Trash2, Save} from "lucide-react";
 import type { Product } from "@/types/firestore/product";
 import { updateProduct, deleteProduct } from "@/lib/firestore/products";
 import { Timestamp } from "firebase/firestore";
@@ -98,6 +99,7 @@ function ProductEditPopupContent({
     }
   };
 
+  // Funzione per aprire il prodotto e calcolare la scadenza da aperto
   const handleOpenProduct = async () => {
     if (!product.productId) return;
     setIsSaving(true);
@@ -126,6 +128,7 @@ function ProductEditPopupContent({
     }
   };
 
+  // Funzione per annullare l'apertura del prodotto
   const handleResetOpened = async () => {
     if (!product.productId) return;
     setIsSaving(true);
@@ -220,7 +223,7 @@ function ProductEditPopupContent({
               />
             </div>
             <div className="flex-[1.5]">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Durata in frigo (giorni)</label>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Durata da aperto (giorni)</label>
               <input
                 type="number"
                 min="0"
@@ -283,7 +286,7 @@ function ProductEditPopupContent({
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {shelfLifeDays
                       ? `Una volta aperto scadrà dopo ${shelfLifeDays} giorni`
-                      : "Imposta una durata in frigo per tracciare l'apertura"}
+                      : "Imposta una durata da aperto per tracciare l'apertura"}
                   </p>
                 </div>
                 {shelfLifeDays && (

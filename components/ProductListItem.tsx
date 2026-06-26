@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
@@ -59,12 +60,10 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
     try {
       if (!inShoppingList) {
         const newId = await addProductToShoppingList(product);
-        // Aggiorniamo l'oggetto locale per evitare errori se l'utente clicca di nuovo
         product.productShoppingListItemId = newId;
         product.addToShoppingList = true;
       } else {
         await removeProductFromShoppingList(product);
-        // Rimuoviamo l'ID localmente
         product.productShoppingListItemId = null;
         product.addToShoppingList = false;
       }
@@ -76,7 +75,7 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
     }
   };
 
-  // Funzione per segnare il prodotto come aperto in frigo
+  // Funzione per segnare il prodotto come aperto 
   const handleOpenProduct = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!product.productId || isOpening) return;
@@ -134,8 +133,8 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
     const expCopy = new Date(effectiveExpiryDate);
     expCopy.setHours(0, 0, 0, 0);
 
-    const diffTime = expCopy.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffTime = expCopy.getTime() - today.getTime(); //Differenza in millisecondi
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); //Conversione in giorni
 
     if (diffDays <= 0) {
       statusColor = "bg-red-500";
@@ -193,7 +192,7 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
             className="p-2.5 rounded-full transition-colors border bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-green-600 hover:bg-green-50 hover:border-green-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-green-400 dark:hover:bg-green-950/20 dark:hover:border-green-900/30"
             onClick={handleOpenProduct}
             disabled={isOpening}
-            title="Apri in frigo"
+            title="Apri prodotto"
           >
             <PackageOpen className="w-5 h-5" />
           </button>

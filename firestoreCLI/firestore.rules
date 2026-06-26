@@ -28,11 +28,8 @@ service cloud.firestore {
       // Eliminazione consentita solo dall'owner
       allow delete: if isAuthenticated() && resource.data.pantryOwnerId == request.auth.uid;
       
-      // Modifica consentita all'owner e ai membri della dispensa, ma solo per i campi pantryMembers e pantryCategories
-      allow update: if isAuthenticated() && (
-        resource.data.pantryOwnerId == request.auth.uid || 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pantryMembers', 'pantryCategories'])
-      );
+      // Modifica consentita solo dall'owner della dispensa
+      allow update: if isAuthenticated() && resource.data.pantryOwnerId == request.auth.uid;
     }
 
     match /products/{productId} {

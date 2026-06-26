@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -9,6 +10,7 @@ import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantry";
 import { InventoryTopBar } from "@/components/InventoryTopBar";
 import { ProductListItem } from "@/components/ProductListItem";
 import { ProductEditPopup } from "@/components/ProductEditPopup";
+import { ProductAddPopup } from "@/components/ProductAddPopup";
 import { Search, Loader, PackageOpen, ArrowDownUp, ArrowDown, ArrowUp } from "lucide-react";
 
 export default function InventarioPage() {
@@ -20,9 +22,10 @@ export default function InventarioPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showOnlyOpened, setShowOnlyOpened] = useState(false);
   const [sortOrder, setSortOrder] = useState<"ascendente" | "discendente" | "none">("none");
-
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isPopUpOpen, setPopUpOpen] = useState(false);
+  const [isAddPopUpOpen, setAddPopUpOpen] = useState(false);
+  const [currentPantryId, setCurrentPantryId] = useState<string>("");
 
   const fetchInventoryData = React.useCallback(async () => {
     if (!auth.currentUser) return;
@@ -30,15 +33,17 @@ export default function InventarioPage() {
     try {
       const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
       const userData = userDoc.data();
-      const currentPantryId = userData?.userProfileCurrentPantryId;
+      const pantryIdToFetch = userData?.userProfileCurrentPantryId;
 
-      if (!currentPantryId) {
+      if (!pantryIdToFetch) {
         setLoading(false);
         return;
       }
 
+      setCurrentPantryId(pantryIdToFetch);
+
       //Recupero nome dispensa e categorie
-      const pantryDoc = await getDoc(doc(db, "pantries", currentPantryId));
+      const pantryDoc = await getDoc(doc(db, "pantries", pantryIdToFetch));
       if (pantryDoc.exists()) {
         const data = pantryDoc.data();
         setPantryName(data.pantryName || "Dispensa unknown");
@@ -46,7 +51,7 @@ export default function InventarioPage() {
       }
 
       // Caricamento prodotti
-      const fetchProducts = await getProductsByPantry(currentPantryId);
+      const fetchProducts = await getProductsByPantry(pantryIdToFetch);
       setProducts(fetchProducts);
 
     } catch (error) {
@@ -57,7 +62,7 @@ export default function InventarioPage() {
   }, []);
 
   useEffect(() => {
-    let mounted = true; //Oer capire se il componente è montato nel DOM
+    let mounted = true; //Per capire se il componente è montato nel DOM
 
     const init = async () => {
       if (mounted) {
@@ -93,6 +98,7 @@ export default function InventarioPage() {
   });
 
   //Ordinamento per data
+  //Verifica sia la scadenza standard che quella calcolata in base all'apertura del prodotto
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sortOrder === "none") return 0;
 
@@ -131,7 +137,10 @@ export default function InventarioPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <InventoryTopBar pantryName={pantryName || "Nessuna dispensa selezionata"} />
+      <InventoryTopBar 
+        pantryName={pantryName || "Nessuna dispensa selezionata"} 
+        onAddProduct={() => setAddPopUpOpen(true)}
+      />
 
       <main className="flex-1 p-4 w-full max-w-3xl mx-auto flex flex-col gap-4">
         {/* Barra di ricerca e filtri */}
@@ -229,6 +238,14 @@ export default function InventarioPage() {
         onClose={() => setPopUpOpen(false)}
         product={selectedProduct}
         onProductUpdated={fetchInventoryData}
+        pantryCategories={pantryCategories}
+      />
+
+      <ProductAddPopup
+        isOpen={isAddPopUpOpen}
+        onClose={() => setAddPopUpOpen(false)}
+        pantryId={currentPantryId}
+        onProductAdded={fetchInventoryData}
         pantryCategories={pantryCategories}
       />
     </div>
