@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["10.31.12.14"], //Per test su rete locale 24/06/2026, non vale per google auth
+  allowedDevOrigins: ["192.168.1.182"], //Per test su wifi di casa, non vale per google auth
   images: {
     remotePatterns: [
       {

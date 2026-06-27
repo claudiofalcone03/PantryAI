@@ -11,6 +11,7 @@ import { type ShoppingListItem as ShoppingListItemType } from "@/types/firestore
 import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
 import { ShoppingListTopBar } from "@/components/ShoppingListTopBar";
 import { ProductAddPopup } from "@/components/ProductAddPopup";
+import { BarcodeScannerPopup } from "@/components/BarcodeScannerPopup";
 import { ShoppingListItem } from "@/components/ShoppingListItem";
 import { Search, Loader, CheckCircle } from "lucide-react";
 import { InventoryTopBar } from "@/components/InventoryTopBar";
@@ -25,6 +26,8 @@ export default function ListaSpesaPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [currentPantryId, setCurrentPantryId] = useState<string>("");
   const [isAddPopUpOpen, setAddPopUpOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannedProductName, setScannedProductName] = useState("");
   const [pantryCategories, setPantryCategories] = useState<string[]>([]);
 
   const fetchData = React.useCallback(async () => {
@@ -154,7 +157,11 @@ export default function ListaSpesaPage() {
     <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <ShoppingListTopBar
         pantryName={pantryName || "Caricamento..."}
-        onAddProduct={() => setAddPopUpOpen(true)}
+        onAddProduct={() => {
+          setScannedProductName("");
+          setAddPopUpOpen(true);
+        }}
+        onScanClick={() => setIsScannerOpen(true)}
       />
 
       <main className="flex-1 p-4 w-full max-w-3xl mx-auto flex flex-col gap-4">
@@ -251,6 +258,17 @@ export default function ListaSpesaPage() {
         pantryCategories={pantryCategories}
         addToShoppingListByDefault={true}
         isShoppingListMode={true}
+        initialName={scannedProductName}
+      />
+
+      <BarcodeScannerPopup
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={(name) => {
+          setScannedProductName(name);
+          setIsScannerOpen(false);
+          setAddPopUpOpen(true);
+        }}
       />
     </div>
   );

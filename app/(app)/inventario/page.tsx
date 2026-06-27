@@ -11,6 +11,7 @@ import { InventoryTopBar } from "@/components/InventoryTopBar";
 import { ProductListItem } from "@/components/ProductListItem";
 import { ProductEditPopup } from "@/components/ProductEditPopup";
 import { ProductAddPopup } from "@/components/ProductAddPopup";
+import { BarcodeScannerPopup } from "@/components/BarcodeScannerPopup";
 import { Search, Loader, PackageOpen, ArrowDownUp, ArrowDown, ArrowUp } from "lucide-react";
 
 export default function InventarioPage() {
@@ -25,6 +26,8 @@ export default function InventarioPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isPopUpOpen, setPopUpOpen] = useState(false);
   const [isAddPopUpOpen, setAddPopUpOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannedProductName, setScannedProductName] = useState("");
   const [currentPantryId, setCurrentPantryId] = useState<string>("");
 
   const fetchInventoryData = React.useCallback(async () => {
@@ -139,7 +142,11 @@ export default function InventarioPage() {
     <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <InventoryTopBar 
         pantryName={pantryName || "Nessuna dispensa selezionata"} 
-        onAddProduct={() => setAddPopUpOpen(true)}
+        onAddProduct={() => {
+          setScannedProductName("");
+          setAddPopUpOpen(true);
+        }}
+        onScanClick={() => setIsScannerOpen(true)}
       />
 
       <main className="flex-1 p-4 w-full max-w-3xl mx-auto flex flex-col gap-4">
@@ -247,6 +254,17 @@ export default function InventarioPage() {
         pantryId={currentPantryId}
         onProductAdded={fetchInventoryData}
         pantryCategories={pantryCategories}
+        initialName={scannedProductName}
+      />
+
+      <BarcodeScannerPopup
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScanSuccess={(name) => {
+          setScannedProductName(name);
+          setIsScannerOpen(false);
+          setAddPopUpOpen(true);
+        }}
       />
     </div>
   );

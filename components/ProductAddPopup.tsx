@@ -15,6 +15,7 @@ interface ProductAddPopupProps {
   pantryCategories?: string[];
   addToShoppingListByDefault?: boolean;
   isShoppingListMode?: boolean;
+  initialName?: string;
 }
 
 export function ProductAddPopup({
@@ -25,6 +26,7 @@ export function ProductAddPopup({
   pantryCategories = [],
   addToShoppingListByDefault = false,
   isShoppingListMode = false,
+  initialName = "",
 }: ProductAddPopupProps) {
   if (!isOpen || !pantryId) return null;
 
@@ -36,6 +38,7 @@ export function ProductAddPopup({
       pantryCategories={pantryCategories}
       addToShoppingListByDefault={addToShoppingListByDefault}
       isShoppingListMode={isShoppingListMode}
+      initialName={initialName}
     />
   );
 }
@@ -47,6 +50,7 @@ function ProductAddPopupContent({
   pantryCategories,
   addToShoppingListByDefault,
   isShoppingListMode,
+  initialName = "",
 }: {
   pantryId: string;
   onClose: () => void;
@@ -54,8 +58,9 @@ function ProductAddPopupContent({
   pantryCategories: string[];
   addToShoppingListByDefault: boolean;
   isShoppingListMode: boolean;
+  initialName: string;
 }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName || "");
   const [quantity, setQuantity] = useState(1);
   const [expiryDate, setExpiryDate] = useState("");
   const [category, setCategory] = useState("");
@@ -105,9 +110,9 @@ function ProductAddPopupContent({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-0">
-      <div
-        className="bg-white dark:bg-zinc-900 w-full sm:max-w-md rounded-2xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-0">
+      <div 
+        className="bg-white dark:bg-zinc-900 w-full sm:max-w-md rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

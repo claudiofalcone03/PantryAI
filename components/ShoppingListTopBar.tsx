@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 interface ShoppingListTopBarProps {
   pantryName: string;
   onAddProduct?: () => void;
+  onScanClick?: () => void;
 }
 
-export function ShoppingListTopBar({ pantryName, onAddProduct }: ShoppingListTopBarProps) {
+export function ShoppingListTopBar({ pantryName, onAddProduct, onScanClick }: ShoppingListTopBarProps) {
   const router = useRouter();
 
   return (
@@ -26,12 +27,8 @@ export function ShoppingListTopBar({ pantryName, onAddProduct }: ShoppingListTop
         </button>
         <button
           className="p-2 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
-          title="Scannerizza valori nutrizionali"
-          onClick={() => {
-            // Reindirizzamento alla pagina dello scanner nutrizionale (implementazioni future ?)
-            // router.push("/scanner-nutrizionale");
-            alert("Pagina scanner valori nutrizionali in arrivo!");
-          }}
+          title="Scannerizza prodotto"
+          onClick={onScanClick}
         >
           <ScanBarcode className="w-6 h-6" />
         </button>

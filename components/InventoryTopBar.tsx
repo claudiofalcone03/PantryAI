@@ -3,9 +3,10 @@ import { Bell, ScanBarcode, Plus } from "lucide-react";
 interface InventoryTopBar {
   pantryName: string;
   onAddProduct?: () => void;
+  onScanClick?: () => void;
 }
 
-export function InventoryTopBar({ pantryName, onAddProduct }: InventoryTopBar) {
+export function InventoryTopBar({ pantryName, onAddProduct, onScanClick }: InventoryTopBar) {
   return (
     <div className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10">
       <div className="flex-1 min-w-0">
@@ -24,7 +25,7 @@ export function InventoryTopBar({ pantryName, onAddProduct }: InventoryTopBar) {
         <button
           className="p-2 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
           title="Scannerizza prodotto"
-          onClick={() => alert("Scanner (Placeholder)")} //Pagina scanner a parte ?
+          onClick={onScanClick}
         >
           <ScanBarcode className="w-6 h-6" />
         </button>
