@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, Plus, Save } from "lucide-react";
 import { addProduct } from "@/lib/firestore/products";
+import { addProductToShoppingList } from "@/lib/firestore/shoppingList";
 import { Timestamp } from "firebase/firestore";
 import type { Product } from "@/types/firestore/product";
 
@@ -12,6 +13,7 @@ interface ProductAddPopupProps {
   pantryId: string;
   onProductAdded: () => void;
   pantryCategories?: string[];
+  addToShoppingListByDefault?: boolean;
 }
 
 export function ProductAddPopup({
@@ -20,6 +22,7 @@ export function ProductAddPopup({
   pantryId,
   onProductAdded,
   pantryCategories = [],
+  addToShoppingListByDefault = false,
 }: ProductAddPopupProps) {
   if (!isOpen || !pantryId) return null;
 
@@ -29,6 +32,7 @@ export function ProductAddPopup({
       onClose={onClose}
       onProductAdded={onProductAdded}
       pantryCategories={pantryCategories}
+      addToShoppingListByDefault={addToShoppingListByDefault}
     />
   );
 }
@@ -38,11 +42,13 @@ function ProductAddPopupContent({
   onClose,
   onProductAdded,
   pantryCategories,
+  addToShoppingListByDefault,
 }: {
   pantryId: string;
   onClose: () => void;
   onProductAdded: () => void;
   pantryCategories: string[];
+  addToShoppingListByDefault: boolean;
 }) {
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -76,7 +82,12 @@ function ProductAddPopupContent({
         productOpenedExpiryAt: null,
       };
 
-      await addProduct(newProduct);
+      const newProductId = await addProduct(newProduct);
+
+      if (addToShoppingListByDefault) {
+        const productForList = { ...newProduct, productId: newProductId } as Product;
+        await addProductToShoppingList(productForList);
+      }
 
       onProductAdded();
       onClose();

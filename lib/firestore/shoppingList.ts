@@ -1,5 +1,5 @@
 import { db } from "../firebase";
-import { collection, doc, writeBatch, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, doc, writeBatch, serverTimestamp, Timestamp, query, where, getDocs, updateDoc } from "firebase/firestore";
 import type { ShoppingListItem } from "../../types/firestore/shoppingListItem";
 import type { Product } from "../../types/firestore/product";
 
@@ -69,4 +69,43 @@ export async function removeProductFromShoppingList(
 
 
 //Funzione per aggiungere il prodotto direttamente alla lista della spesa
-//Deve richiamare un componente
+
+// Recupera tutti gli elementi della lista della spesa per una specifica dispensa
+export async function getShoppingListItemsByPantry(pantryId: string): Promise<ShoppingListItem[]> {
+  const q = query(
+    collection(db, "shoppingListItems"),
+    where("listItemPantryId", "==", pantryId)
+  );
+
+  const querySnapshot = await getDocs(q);
+  const items: ShoppingListItem[] = [];
+
+  querySnapshot.forEach((doc) => {
+    items.push({ listItemId: doc.id, ...doc.data() } as ShoppingListItem);
+  });
+
+  return items;
+}
+
+// Aggiorna lo stato di un elemento nella lista della spesa
+export async function updateShoppingListItemStatus(
+  listItemId: string,
+  newStatus: ShoppingListItem["listItemStatus"],
+  memberName?: string
+): Promise<void> {
+  const itemRef = doc(db, "shoppingListItems", listItemId);
+  const updateData: any = {
+    listItemStatus: newStatus,
+    listItemUpdatedAt: serverTimestamp(),
+  };
+
+  if (newStatus === "reserved" && memberName) {
+    updateData.listItemReservedBy = memberName;
+    updateData.listItemReservedAt = serverTimestamp();
+  } else if (newStatus === "purchased" && memberName) {
+    updateData.listItemPurchasedBy = memberName;
+    updateData.listItemPurchasedAt = serverTimestamp();
+  }
+
+  await updateDoc(itemRef, updateData);
+}
