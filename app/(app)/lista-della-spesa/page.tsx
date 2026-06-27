@@ -8,6 +8,7 @@ import { getProductsByPantry } from "@/lib/firestore/products";
 import { getShoppingListItemsByPantry, removeProductFromShoppingList } from "@/lib/firestore/shoppingList";
 import { type Product } from "@/types/firestore/productType";
 import { type ShoppingListItem as ShoppingListItemType } from "@/types/firestore/shoppingListItemType";
+import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
 import { ShoppingListTopBar } from "@/components/ShoppingListTopBar";
 import { ProductAddPopup } from "@/components/ProductAddPopup";
 import { ShoppingListItem } from "@/components/ShoppingListItem";
@@ -24,6 +25,7 @@ export default function ListaSpesaPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [currentPantryId, setCurrentPantryId] = useState<string>("");
   const [isAddPopUpOpen, setAddPopUpOpen] = useState(false);
+  const [pantryCategories, setPantryCategories] = useState<string[]>([]);
 
   const fetchData = React.useCallback(async () => {
     if (!auth.currentUser) return;
@@ -40,11 +42,12 @@ export default function ListaSpesaPage() {
 
       setCurrentPantryId(pantryIdToFetch);
 
-      //Recupero nome dispensa
+      //Recupero nome e categorie dispensa
       const pantryDoc = await getDoc(doc(db, "pantries", pantryIdToFetch));
       if (pantryDoc.exists()) {
         const data = pantryDoc.data();
         setPantryName(data.pantryName || "Dispensa unknown");
+        setPantryCategories(data.pantryCategories?.length ? data.pantryCategories : DEFAULT_PANTRY_CATEGORIES);
       }
 
       // Caricamento prodotti e lista spesa in parallelo
@@ -117,6 +120,8 @@ export default function ListaSpesaPage() {
       .filter(Boolean) as string[];
     return Array.from(new Set(cates)).sort();
   }, [itemsWithProduct]);
+
+
 
   // Ricerca e filtro
   const filteredItems = itemsWithProduct.filter(x => {
@@ -243,8 +248,9 @@ export default function ListaSpesaPage() {
         onClose={() => setAddPopUpOpen(false)}
         pantryId={currentPantryId}
         onProductAdded={fetchData}
-        pantryCategories={categories}
+        pantryCategories={pantryCategories}
         addToShoppingListByDefault={true}
+        isShoppingListMode={true}
       />
     </div>
   );

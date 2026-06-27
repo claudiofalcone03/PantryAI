@@ -14,6 +14,7 @@ interface ProductAddPopupProps {
   onProductAdded: () => void;
   pantryCategories?: string[];
   addToShoppingListByDefault?: boolean;
+  isShoppingListMode?: boolean;
 }
 
 export function ProductAddPopup({
@@ -23,6 +24,7 @@ export function ProductAddPopup({
   onProductAdded,
   pantryCategories = [],
   addToShoppingListByDefault = false,
+  isShoppingListMode = false,
 }: ProductAddPopupProps) {
   if (!isOpen || !pantryId) return null;
 
@@ -33,6 +35,7 @@ export function ProductAddPopup({
       onProductAdded={onProductAdded}
       pantryCategories={pantryCategories}
       addToShoppingListByDefault={addToShoppingListByDefault}
+      isShoppingListMode={isShoppingListMode}
     />
   );
 }
@@ -43,12 +46,14 @@ function ProductAddPopupContent({
   onProductAdded,
   pantryCategories,
   addToShoppingListByDefault,
+  isShoppingListMode,
 }: {
   pantryId: string;
   onClose: () => void;
   onProductAdded: () => void;
   pantryCategories: string[];
   addToShoppingListByDefault: boolean;
+  isShoppingListMode: boolean;
 }) {
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -72,7 +77,7 @@ function ProductAddPopupContent({
 
       const newProduct: Omit<Product, "productId" | "productCreatedAt" | "productUpdatedAt"> = {
         productName: name.trim(),
-        productQuantity: quantity,
+        productQuantity: isShoppingListMode ? 0 : quantity,
         productCategory: category || undefined,
         shelfLifeDays: shelfLifeDays === "" ? null : Number(shelfLifeDays),
         expiryDateProduct: expiryTimestamp,
@@ -149,39 +154,43 @@ function ProductAddPopupContent({
             </div>
           </div>
 
-          <div className="flex gap-4">
-            <div className="flex-[1]">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Quantità</label>
-              <input
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div className="flex-[1.5]">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Durata da aperto (giorni)</label>
-              <input
-                type="number"
-                min="0"
-                value={shelfLifeDays}
-                onChange={(e) => setShelfLifeDays(e.target.value === "" ? "" : Number(e.target.value))}
-                placeholder="es. 3"
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-          </div>
+          {!isShoppingListMode && (
+            <>
+              <div className="flex gap-4">
+                <div className="flex-[1]">
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Quantità</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
+                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div className="flex-[1.5]">
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Durata da aperto (giorni)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={shelfLifeDays}
+                    onChange={(e) => setShelfLifeDays(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="es. 3"
+                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Scadenza</label>
-            <input
-              type="date"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Scadenza</label>
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}
