@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-import type { UserProfile } from "./userProfile";
+import type { UserProfile } from "./userProfileType";
 
 //Tipo Membro della dispensa
 export interface PantryMember {

@@ -8,7 +8,7 @@ import {
   Trash, Users, Plus, X, Pencil, ArrowLeft, Copy,
   UserMinus, Crown, User as UserIcon
 } from "lucide-react";
-import { type Pantry, DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantry";
+import { type Pantry, DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
 import {
   updatePantryName,
   updatePantryCategories,

@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { X, Trash2, Save} from "lucide-react";
-import type { Product } from "@/types/firestore/product";
+import type { Product } from "@/types/firestore/productType";
 import { updateProduct, deleteProduct } from "@/lib/firestore/products";
 import { Timestamp } from "firebase/firestore";
 

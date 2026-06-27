@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
-import type { Pantry } from "./pantry";
-import type { ShoppingListItem } from "./shoppingListItem";
+import type { Pantry } from "./pantryType";
+import type { ShoppingListItem } from "./shoppingListItemType";
 
 //Tipo Prodotto (inventario)
 export interface Product {

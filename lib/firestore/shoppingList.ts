@@ -1,7 +1,7 @@
 import { db } from "../firebase";
 import { collection, doc, writeBatch, serverTimestamp, Timestamp, query, where, getDocs, updateDoc } from "firebase/firestore";
-import type { ShoppingListItem } from "../../types/firestore/shoppingListItem";
-import type { Product } from "../../types/firestore/product";
+import type { ShoppingListItem } from "../../types/firestore/shoppingListItemType";
+import type { Product } from "../../types/firestore/productType";
 
 //Aggiunge un prodotto esistente dell'inventario alla lista della spesa
 export async function addProductToShoppingList(

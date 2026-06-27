@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { Check, Hand } from "lucide-react";
-import type { ShoppingListItem as ShoppingListItemType } from "@/types/firestore/shoppingListItem";
-import type { Product } from "@/types/firestore/product";
+import type { ShoppingListItem as ShoppingListItemType } from "@/types/firestore/shoppingListItemType";
+import type { Product } from "@/types/firestore/productType";
 import { updateShoppingListItemStatus } from "@/lib/firestore/shoppingList";
 import { auth } from "@/lib/firebase";
 

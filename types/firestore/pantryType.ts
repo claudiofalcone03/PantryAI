@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-import type { PantryMember } from "./pantryMember";
+import type { PantryMember } from "./pantryMemberType";
 
 //Tipo dispensa
 export interface Pantry {

@@ -1,8 +1,8 @@
 import type { Timestamp } from "firebase/firestore";
 
-import type { Product } from "./product";
-import type { Pantry } from "./pantry";
-import type { PantryMember } from "./pantryMember";
+import type { Product } from "./productType";
+import type { Pantry } from "./pantryType";
+import type { PantryMember } from "./pantryMemberType";
 
 //Tipo Prodotto (lista della spesa)
 export interface ShoppingListItem {

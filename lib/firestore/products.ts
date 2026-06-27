@@ -1,6 +1,6 @@
 import { db } from "../firebase";
 import { collection, doc, setDoc, getDocs, query, where, deleteDoc, updateDoc, serverTimestamp, Timestamp } from "firebase/firestore";
-import type { Product } from "../../types/firestore/product";
+import type { Product } from "../../types/firestore/productType";
 
 
 

@@ -5,7 +5,7 @@ import { X, Plus, Save } from "lucide-react";
 import { addProduct } from "@/lib/firestore/products";
 import { addProductToShoppingList } from "@/lib/firestore/shoppingList";
 import { Timestamp } from "firebase/firestore";
-import type { Product } from "@/types/firestore/product";
+import type { Product } from "@/types/firestore/productType";
 
 interface ProductAddPopupProps {
   isOpen: boolean;

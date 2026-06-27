@@ -4,7 +4,7 @@ import { useState } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { addProduct } from "@/lib/firestore/products";
-import type { Product } from "@/types/firestore/product";
+import type { Product } from "@/types/firestore/productType";
 
 export default function TestFirestorePage() {
     const [loading, setLoading] = useState(false);

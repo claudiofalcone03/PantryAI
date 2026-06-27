@@ -8,8 +8,8 @@ import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { User, LogOut, Layers, FileDown, Trash, Pencil, Copy, DoorOpen, Plus, UserPlus, CheckCircle, Settings } from "lucide-react";
 import Image from "next/image";
-import type { UserProfile } from "@/types/firestore/userProfile";
-import type { Pantry } from "@/types/firestore/pantry";
+import type { UserProfile } from "@/types/firestore/userProfileType";
+import type { Pantry } from "@/types/firestore/pantryType";
 import { getUserPantries, leavePantry, createPantry, joinPantryWithCode, setCurrentPantry } from "@/lib/firestore/pantries";
 
 export default function ProfilePage() {

@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { ShoppingCart, Minus, Plus, Clock, PackageOpen } from "lucide-react";
-import type { Product } from "@/types/firestore/product";
+import type { Product } from "@/types/firestore/productType";
 import { updateProduct } from "@/lib/firestore/products";
 import { addProductToShoppingList, removeProductFromShoppingList } from "@/lib/firestore/shoppingList";
 import { Timestamp } from "firebase/firestore";

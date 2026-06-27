@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import type { UserProfile } from "@/types/firestore";  //Importa l'interfaccia UserProfile per tipizzare
+import type { UserProfile } from "@/types/firestore/indexOfTypes";  //Importa l'interfaccia UserProfile per tipizzare
 
 export default function RedirectLoginPage() {
   const router = useRouter();
