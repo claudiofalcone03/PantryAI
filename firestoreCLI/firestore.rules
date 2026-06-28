@@ -16,8 +16,16 @@ service cloud.firestore {
     match /users/{userId} {
       // Lettura permessa a tutti per mostrare i nomi dei membri
       allow read: if isAuthenticated();
-      // Scrittura permessa solo al proprietario del profilo
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Creazione e cancellazione permesse solo al proprietario del profilo
+      allow create, delete: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Modifica permessa al proprietario, oppure ad altri utenti ma SOLO sui campi relativi alle dispense 
+      // (questo serve per permettere all'owner di una dispensa di espellere un membro aggiornando il suo profilo)
+      allow update: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userProfilePantryIds', 'userProfileCurrentPantryId'])
+      );
     }
 
     match /pantries/{pantryId} {
@@ -28,8 +36,8 @@ service cloud.firestore {
       // Eliminazione consentita solo dall'owner
       allow delete: if isAuthenticated() && resource.data.pantryOwnerId == request.auth.uid;
       
-      // Modifica consentita solo dall'owner della dispensa
-      allow update: if isAuthenticated() && resource.data.pantryOwnerId == request.auth.uid;
+      // Modifica consentita all'owner, ai membri, o a chiunque si stia unendo tramite codice
+      allow update: if isAuthenticated();
     }
 
     match /products/{productId} {
