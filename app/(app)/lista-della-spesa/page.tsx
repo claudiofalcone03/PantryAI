@@ -28,6 +28,7 @@ export default function ListaSpesaPage() {
   const [isAddPopUpOpen, setAddPopUpOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannedProductName, setScannedProductName] = useState("");
+  const [scannedCarbonFootprint, setScannedCarbonFootprint] = useState<number | null>(null);
   const [pantryCategories, setPantryCategories] = useState<string[]>([]);
 
   const fetchData = React.useCallback(async () => {
@@ -159,6 +160,7 @@ export default function ListaSpesaPage() {
         pantryName={pantryName || "Caricamento..."}
         onAddProduct={() => {
           setScannedProductName("");
+          setScannedCarbonFootprint(null);
           setAddPopUpOpen(true);
         }}
         onScanClick={() => setIsScannerOpen(true)}
@@ -259,13 +261,15 @@ export default function ListaSpesaPage() {
         addToShoppingListByDefault={true}
         isShoppingListMode={true}
         initialName={scannedProductName}
+        initialCarbonFootprint={scannedCarbonFootprint}
       />
 
       <BarcodeScannerPopup
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
-        onScanSuccess={(name) => {
+        onScanSuccess={(name, carbonFootprint) => {
           setScannedProductName(name);
+          setScannedCarbonFootprint(carbonFootprint ?? null);
           setIsScannerOpen(false);
           setAddPopUpOpen(true);
         }}

@@ -6,7 +6,7 @@ import { fetchProductByBarcode } from "@/lib/api/openFoodFacts";
 interface BarcodeScannerPopupProps {
   isOpen: boolean;
   onClose: () => void;
-  onScanSuccess: (productName: string) => void;
+  onScanSuccess: (productName: string, carbonFootprint?: number | null) => void;
 }
 
 export function BarcodeScannerPopup({ isOpen, onClose, onScanSuccess }: BarcodeScannerPopupProps) {
@@ -60,12 +60,12 @@ export function BarcodeScannerPopup({ isOpen, onClose, onScanSuccess }: BarcodeS
             console.log("Invio richiesta a Open Food Facts:");
 
             try {
-              const productName = await fetchProductByBarcode(decodedText);
+              const result = await fetchProductByBarcode(decodedText);
               if (scanner) {
                 await scanner.stop();
                 scanner.clear();
               }
-              onScanSuccess(productName);
+              onScanSuccess(result.name, result.carbonFootprint);
             } catch (err) {
               console.error("Errore fetch open food facts:", err);
               setErrorMessage("Il prodotto non è presente");

@@ -16,6 +16,7 @@ interface ProductAddPopupProps {
   addToShoppingListByDefault?: boolean;
   isShoppingListMode?: boolean;
   initialName?: string;
+  initialCarbonFootprint?: number | null;
 }
 
 export function ProductAddPopup({
@@ -27,6 +28,7 @@ export function ProductAddPopup({
   addToShoppingListByDefault = false,
   isShoppingListMode = false,
   initialName = "",
+  initialCarbonFootprint = null,
 }: ProductAddPopupProps) {
   if (!isOpen || !pantryId) return null;
 
@@ -39,6 +41,7 @@ export function ProductAddPopup({
       addToShoppingListByDefault={addToShoppingListByDefault}
       isShoppingListMode={isShoppingListMode}
       initialName={initialName}
+      initialCarbonFootprint={initialCarbonFootprint}
     />
   );
 }
@@ -51,6 +54,7 @@ function ProductAddPopupContent({
   addToShoppingListByDefault,
   isShoppingListMode,
   initialName = "",
+  initialCarbonFootprint = null,
 }: {
   pantryId: string;
   onClose: () => void;
@@ -59,6 +63,7 @@ function ProductAddPopupContent({
   addToShoppingListByDefault: boolean;
   isShoppingListMode: boolean;
   initialName: string;
+  initialCarbonFootprint: number | null;
 }) {
   const [name, setName] = useState(initialName || "");
   const [quantity, setQuantity] = useState(1);
@@ -83,13 +88,14 @@ function ProductAddPopupContent({
       const newProduct: Omit<Product, "productId" | "productCreatedAt" | "productUpdatedAt"> = {
         productName: name.trim(),
         productQuantity: isShoppingListMode ? 0 : quantity,
-        productCategory: category || undefined,
+        ...(category ? { productCategory: category } : {}),
         shelfLifeDays: shelfLifeDays === "" ? null : Number(shelfLifeDays),
         expiryDateProduct: expiryTimestamp,
         productPantryId: pantryId,
         addToShoppingList: false,
         productOpenedAt: null,
         productOpenedExpiryAt: null,
+        carbonFootprint: initialCarbonFootprint,
       };
 
       const newProductId = await addProduct(newProduct);

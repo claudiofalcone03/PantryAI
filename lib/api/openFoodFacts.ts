@@ -1,4 +1,4 @@
-export async function fetchProductByBarcode(barcode: string): Promise<string> {
+export async function fetchProductByBarcode(barcode: string): Promise<{ name: string; carbonFootprint: number | null }> {
   const url = `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`;
   console.log(`Richiesta API in corso per il barcode: ${barcode}`);
 
@@ -14,7 +14,16 @@ export async function fetchProductByBarcode(barcode: string): Promise<string> {
     if (data.status === 1 && data.product) {
       // Prova a recuperare vari campi nome, oppure la marca
       const productName = data.product.product_name_it || data.product.product_name || data.product.generic_name || data.product.product_name_en || data.product.brands || "Prodotto Sconosciuto";
-      return productName;
+      
+      let carbonFootprint: number | null = null;
+      if (data.product.product_quantity && data.product.ecoscore_data?.agribalyse?.co2_total) {
+        const quantity = Number(data.product.product_quantity);
+        if (!isNaN(quantity)) {
+          carbonFootprint = quantity * data.product.ecoscore_data.agribalyse.co2_total;
+        }
+      }
+
+      return { name: productName, carbonFootprint };
     } else {
       throw new Error("Prodotto non presente");
     }

@@ -28,6 +28,7 @@ export default function InventarioPage() {
   const [isAddPopUpOpen, setAddPopUpOpen] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannedProductName, setScannedProductName] = useState("");
+  const [scannedCarbonFootprint, setScannedCarbonFootprint] = useState<number | null>(null);
   const [currentPantryId, setCurrentPantryId] = useState<string>("");
 
   const fetchInventoryData = React.useCallback(async () => {
@@ -144,6 +145,7 @@ export default function InventarioPage() {
         pantryName={pantryName || "Nessuna dispensa selezionata"} 
         onAddProduct={() => {
           setScannedProductName("");
+          setScannedCarbonFootprint(null);
           setAddPopUpOpen(true);
         }}
         onScanClick={() => setIsScannerOpen(true)}
@@ -255,13 +257,15 @@ export default function InventarioPage() {
         onProductAdded={fetchInventoryData}
         pantryCategories={pantryCategories}
         initialName={scannedProductName}
+        initialCarbonFootprint={scannedCarbonFootprint}
       />
 
       <BarcodeScannerPopup
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
-        onScanSuccess={(name) => {
+        onScanSuccess={(name, carbonFootprint) => {
           setScannedProductName(name);
+          setScannedCarbonFootprint(carbonFootprint ?? null);
           setIsScannerOpen(false);
           setAddPopUpOpen(true);
         }}

@@ -20,4 +20,5 @@ export interface Product {
   productUpdatedAt?: Timestamp;
   productPantryId: Pantry["pantryId"]; //id della dispensa a cui il prodotto appartiene
   productShoppingListItemId?: ShoppingListItem["listItemId"] | null; //per collegare il prodotto alla lista della spesa, se è stato creato dalla lista della spsesa
+  carbonFootprint?: number | null; // valore dato da product_quantity * ecoscore_data:agribalyse:co2_total
 }
