@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { X, Loader } from "lucide-react";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { fetchProductByBarcode } from "@/lib/api/openFoodFacts";
 
 interface BarcodeScannerPopupProps {
@@ -31,12 +31,24 @@ export function BarcodeScannerPopup({ isOpen, onClose, onScanSuccess }: BarcodeS
     const startScanner = async () => {
       try {
         console.log("Avvio scanner");
-        scanner = new Html5Qrcode("barcode-reader");
+        scanner = new Html5Qrcode("barcode-reader", {
+          verbose: false,
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.EAN_8,
+            Html5QrcodeSupportedFormats.UPC_A,
+            Html5QrcodeSupportedFormats.UPC_E,
+          ],
+        });
         await scanner.start(
           { facingMode: "environment" }, // Usa la fotocamera posteriore se disponibile
           {
-            fps: 10,
-            qrbox: { width: 250, height: 150 },
+            fps: 60,
+            qrbox: (viewfinderWidth, viewfinderHeight) => {
+              const width = Math.floor(viewfinderWidth * 0.8);
+              return { width: width, height: 150 };
+            },
+            disableFlip: false, // Permette di leggere il codice anche se è capovolto
           },
           async (decodedText) => {
             if (isRequesting) return;
