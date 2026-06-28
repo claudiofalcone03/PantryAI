@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Refrigerator, Calendar, Sparkles, ShoppingCart, Settings } from "lucide-react";
+import { Trash2, Refrigerator, Sparkles, ShoppingCart, Settings } from "lucide-react";
 
 export function DownNavbar() {
   const pathname = usePathname();
@@ -11,7 +11,7 @@ export function DownNavbar() {
     { name: "Inventario", href: "/inventario", icon: Refrigerator },
     { name: "Spesa", href: "/lista-della-spesa", icon: ShoppingCart },
     { name: "Ricette AI", href: "/ricette-ai", icon: Sparkles },
-    { name: "Plan", href: "/plan", icon: Calendar },
+    { name: "Spreco", href: "/waste", icon: Trash2 },
     { name: "Profilo", href: "/profilo", icon: Settings },
   ];
 

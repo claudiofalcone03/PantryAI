@@ -112,53 +112,47 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-4">
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-20 pointer-events-none">
-        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white blur-3xl"></div>
-        <div className="absolute top-1/2 right-0 w-64 h-64 rounded-full bg-blue-300 blur-3xl"></div>
-        <div className="absolute bottom-0 left-1/4 w-80 h-80 rounded-full bg-pink-300 blur-3xl"></div>
-      </div>
-
-      <div className="relative z-10 w-full max-w-md bg-white/10 backdrop-blur-xl rounded-3xl shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] border border-white/20 p-8 sm:p-10 transition-all duration-300">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4">
+      <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 sm:p-10 shadow-sm transition-all hover:shadow-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/20 mb-4 shadow-inner">
-            <LogIn className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-4 text-green-600 dark:text-green-500">
+            <LogIn className="w-8 h-8" />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">
+          <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
             {isLogin ? "Benvenuto" : "Crea il tuo account"}
           </h1>
-          <p className="text-white/70 mt-2">
+          <p className="text-zinc-500 dark:text-zinc-400 mt-2">
             {isLogin ? "Accedi per accedere alla tua dispensa" : "Iscriviti per iniziare a organizzare"}
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-500/20 border border-red-500/50 flex items-start gap-3 text-white">
-            <AlertCircle className="w-5 h-5 text-red-200 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-100">{error}</p>
+          <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
           </div>
         )}
 
         {message && (
-          <div className="mb-6 p-4 rounded-xl bg-green-500/20 border border-green-500/50 flex items-start gap-3 text-white">
-            <CheckCircle className="w-5 h-5 text-green-200 shrink-0 mt-0.5" />
-            <p className="text-sm text-green-100">{message}</p>
+          <div className="mb-6 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-green-800 dark:text-green-200">{message}</p>
           </div>
         )}
 
         <form onSubmit={handleAuth} className="space-y-5">
           <div className="space-y-1">
-            <label className="text-sm font-medium text-white/90 ml-1">Email</label>
+            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300 ml-1">Email</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-white/50" />
+                <Mail className="h-5 w-5 text-zinc-400" />
               </div>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required //Validazione email HTML
-                className="w-full pl-11 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all"
+                className="block w-full pl-11 pr-4 py-3 border border-zinc-200 dark:border-zinc-800 rounded-2xl leading-5 bg-zinc-50 dark:bg-zinc-950 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm transition-colors text-zinc-900 dark:text-zinc-100"
                 placeholder="you@example.com"
               />
             </div>
@@ -166,13 +160,13 @@ export default function LoginPage() {
 
           <div className="space-y-1">
             <div className="flex justify-between items-center px-1">
-              <label className="text-sm font-medium text-white/90">Password</label>
+              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Password</label>
               {isLogin && (
                 <button
                   type="button"
                   onClick={handleResetPassword}
                   disabled={loading}
-                  className="text-xs text-white/80 hover:text-white hover:underline focus:outline-none transition-colors disabled:opacity-50 disabled:hover:no-underline"
+                  className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-500 hover:underline focus:outline-none transition-colors disabled:opacity-50 disabled:hover:no-underline"
                 >
                   Hai dimenticato la password?
                 </button>
@@ -180,7 +174,7 @@ export default function LoginPage() {
             </div>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-white/50" />
+                <Lock className="h-5 w-5 text-zinc-400" />
               </div>
               <input
                 type={showPassword ? "text" : "password"}
@@ -188,14 +182,14 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 minLength={minPasswordLength}
                 required //Validazione minimo lunghezza password 
-                className="w-full pl-11 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent transition-all"
+                className="block w-full pl-11 pr-12 py-3 border border-zinc-200 dark:border-zinc-800 rounded-2xl leading-5 bg-zinc-50 dark:bg-zinc-950 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 sm:text-sm transition-colors text-zinc-900 dark:text-zinc-100"
                 placeholder="*******"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((currentValue) => !currentValue)}
                 aria-label={showPassword ? "Nascondi password" : "Mostra password"}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-white/60 hover:text-white transition-colors"
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -205,23 +199,23 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 bg-white text-purple-600 font-bold rounded-xl shadow-lg hover:bg-opacity-90 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-70 disabled:hover:translate-y-0"
+            className="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl shadow-sm transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {loading ? "Processing..." : isLogin ? "Accedi" : "Iscriviti"}
           </button>
         </form>
 
         <div className="mt-6 flex items-center justify-between">
-          <div className="h-px bg-white/20 flex-1"></div>
-          <span className="px-4 text-sm text-white/60">Oppure continua con</span>
-          <div className="h-px bg-white/20 flex-1"></div>
+          <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1"></div>
+          <span className="px-4 text-sm text-zinc-400">Oppure continua con</span>
+          <div className="h-px bg-zinc-200 dark:bg-zinc-800 flex-1"></div>
         </div>
 
         <button
           onClick={handleGoogleSignIn}
           type="button"
           disabled={loading}
-          className="mt-6 w-full flex items-center justify-center gap-3 py-3 px-4 bg-white/10 border border-white/20 rounded-xl text-white font-medium hover:bg-white/20 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+          className="mt-6 w-full flex items-center justify-center gap-3 py-3 px-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-zinc-900 dark:text-zinc-100 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -233,9 +227,9 @@ export default function LoginPage() {
           Google
         </button>
 
-        <div className="mt-8 text-center text-sm text-white/70">
+        <div className="mt-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
           {isLogin ? "Non hai un account? " : "Hai già un account? "}
-          <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-white hover:underline focus:outline-none">
+          <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-green-600 dark:text-green-500 hover:underline focus:outline-none">
             {isLogin ? "Iscriviti" : "Accedi"}
           </button>
         </div>

@@ -38,9 +38,9 @@ export default function ProfilePage() {
 						photoURL = data.userProfilePhotoURL || photoURL;
 						currentPantryId = data.userProfileCurrentPantryId || null;
 					}
-                    
-                    const userPantries = await getUserPantries(user.uid); //Funzione importata 
-                    setPantries(userPantries);
+
+					const userPantries = await getUserPantries(user.uid); //Funzione importata 
+					setPantries(userPantries);
 				} catch (error) {
 					console.error("Errore nel recupero dati utente o dispense:", error);
 				}
@@ -97,7 +97,7 @@ export default function ProfilePage() {
 		const pantryName = window.prompt("Inserisci il nome della nuova dispensa:");
 		if (pantryName && pantryName.trim()) {
 			try {
-				await createPantry(user.uid, pantryName.trim(), userData?.name); 
+				await createPantry(user.uid, pantryName.trim(), userData?.name);
 				const updatedPantries = await getUserPantries(user.uid);
 				setPantries(updatedPantries);
 				alert("Dispensa creata con successo!");
@@ -174,11 +174,11 @@ export default function ProfilePage() {
 				<div className="space-y-4">
 					<button
 						className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-2xl border border-gray-200 dark:border-zinc-800 transition-colors"
-						onClick={() => {/*Funzione modifica profilo*/}}
+						onClick={() => {/*Funzione modifica profilo*/ }}
 					>
 						<div className="flex items-center space-x-3">
 							<Pencil className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-							<span className="font-medium text-gray-900 dark:text-white">Modifica dati profilo  (email e password?) </span>
+							<span className="font-medium text-gray-900 dark:text-white">Modifica dati profilo  (Prossimamente) </span>
 						</div>
 					</button>
 
@@ -264,7 +264,7 @@ export default function ProfilePage() {
 					>
 						<div className="flex items-center space-x-3">
 							<FileDown className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-							<span className="font-medium text-gray-900 dark:text-white">Esporta dati in csv</span>
+							<span className="font-medium text-gray-900 dark:text-white">Esporta dati (Prossimamente)</span>
 						</div>
 					</button>
 
@@ -285,7 +285,7 @@ export default function ProfilePage() {
 						>
 							<div className="flex items-center space-x-3 text-red-600 dark:text-red-400 opacity-80 group-hover:opacity-100 transition-opacity">
 								<Trash className="w-5 h-5" />
-								<span className="font-medium">Elimina account definitivamente</span>
+								<span className="font-medium">Elimina account definitivamente (Prossimamente)</span>
 							</div>
 						</button>
 					</div>
