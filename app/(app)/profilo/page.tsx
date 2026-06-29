@@ -141,9 +141,12 @@ export default function ProfilePage() {
 	};
 
 	return (
-		<main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
-			<div className="px-4 py-8 max-w-md mx-auto">
-				<h1 className="text-2xl font-bold text-center mb-8 text-gray-900 dark:text-white">Impostazioni</h1>
+		<div className="flex flex-col min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
+			<header className="sticky top-0 z-10 px-4 py-6 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+				<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Impostazioni</h1>
+			</header>
+
+			<main className="flex-1 px-4 py-6 max-w-md mx-auto w-full">
 
 				<div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-gray-200 dark:border-zinc-800 mb-8">
 					<div className="flex flex-col items-center">
@@ -290,7 +293,7 @@ export default function ProfilePage() {
 						</button>
 					</div>
 				</div>
-			</div>
-		</main>
+			</main>
+		</div>
 	);
 }

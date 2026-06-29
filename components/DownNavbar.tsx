@@ -11,7 +11,7 @@ export function DownNavbar() {
     { name: "Inventario", href: "/inventario", icon: Refrigerator },
     { name: "Spesa", href: "/lista-della-spesa", icon: ShoppingCart },
     { name: "Ricette AI", href: "/ricette-ai", icon: Sparkles },
-    { name: "Spreco", href: "/waste", icon: Trash2 },
+    { name: "Spreco", href: "/spreco", icon: Trash2 },
     { name: "Profilo", href: "/profilo", icon: Settings },
   ];
 
