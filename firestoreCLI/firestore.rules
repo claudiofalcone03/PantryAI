@@ -40,6 +40,11 @@ service cloud.firestore {
       allow update: if isAuthenticated();
     }
 
+    match /pantries/{pantryId}/history/{logId} {
+      // Accesso allo storico solo se si appartiene alla dispensa
+      allow read, write: if isAuthenticated() && isPantryMember(pantryId);
+    }
+
     match /products/{productId} {
       // Accesso ai prodotti solo se si è membri della dispensa 
       allow read, update, delete: if isAuthenticated() && isPantryMember(resource.data.productPantryId);

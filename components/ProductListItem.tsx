@@ -6,7 +6,10 @@ import { ShoppingCart, Minus, Plus, Clock, PackageOpen } from "lucide-react";
 import type { Product } from "@/types/firestore/productType";
 import { updateProduct } from "@/lib/firestore/products";
 import { addProductToShoppingList, removeProductFromShoppingList } from "@/lib/firestore/shoppingList";
+import { addProductHistoryLog } from "@/lib/firestore/productHistory";
 import { Timestamp } from "firebase/firestore";
+import { RemoveQuantityPopup } from "./RemoveQuantityPopup";
+import { getEffectiveExpiryDate } from "@/lib/firestore/pantries";
 
 interface ProductListItemProps {
   product: Product;
@@ -20,6 +23,7 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
   const [isShoppingListUpdating, setIsShoppingListUpdating] = useState(false);
   const [inShoppingList, setInShoppingList] = useState(product.addToShoppingList);
   const [isOpening, setIsOpening] = useState(false);
+  const [showDecreaseOptions, setShowDecreaseOptions] = useState(false);
 
   //Fix incoerenza ID
   React.useEffect(() => {
@@ -28,7 +32,7 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
   }, [product.productQuantity, product.addToShoppingList]);
 
   //Modifica la quantità
-  const handleUpdateQuantity = async (e: React.MouseEvent, delta: number) => {
+  const handleUpdateQuantity = async (e: React.MouseEvent, delta: number, resolution?: 'consumed' | 'wasted') => {
     e.stopPropagation(); //
     if (!product.productId || isUpdating) return;
 
@@ -37,10 +41,45 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
 
     setQuantity(newQuantity);
     setIsUpdating(true);
+    setShowDecreaseOptions(false);
 
     try {
       await updateProduct(product.productId, { productQuantity: newQuantity });
       product.productQuantity = newQuantity;
+
+      // Se rimuovo un prodotto aggiungo allo storico
+      if (delta < 0 && resolution) {
+        let finalResolution: 'consumed' | 'rescued' | 'wasted' = resolution;
+
+        // Un prodotto è "salvato" se consumato entro 3 giorni dalla scadenza
+        if (resolution === 'consumed') {
+          const effectiveExpiryDate = getEffectiveExpiryDate(product);
+
+          if (effectiveExpiryDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const expCopy = new Date(effectiveExpiryDate);
+            expCopy.setHours(0, 0, 0, 0);
+            const diffTime = expCopy.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays <= 3 && diffDays >= 0) {
+              finalResolution = 'rescued';
+            }
+          }
+        }
+
+        if (product.productPantryId) {
+          await addProductHistoryLog(product.productPantryId, {
+            productId: product.productId,
+            productName: product.productName,
+            productCategory: product.productCategory ?? "",
+            carbonFootprint: product.carbonFootprint ?? 0,
+            quantityHistory: 1,
+            resolution: finalResolution,
+          });
+        }
+      }
+
     } catch (error) {
       console.error("Errore aggiornamento quantità:", error);
       setQuantity(quantity);
@@ -114,17 +153,7 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
   const isOpened = !!product.productOpenedAt;
 
   // Determina la data di scadenza effettiva da usare per visualizzazione e calcolo stato
-  let effectiveExpiryDate: Date | null = null;
-
-  if (product.productOpenedExpiryAt) {
-    effectiveExpiryDate = typeof (product.productOpenedExpiryAt as any).toDate === 'function'
-      ? (product.productOpenedExpiryAt as Timestamp).toDate()
-      : new Date(product.productOpenedExpiryAt as any);
-  } else if (product.expiryDateProduct) {
-    effectiveExpiryDate = typeof (product.expiryDateProduct as any).toDate === 'function'
-      ? (product.expiryDateProduct as Timestamp).toDate()
-      : new Date(product.expiryDateProduct as any);
-  }
+  const effectiveExpiryDate = getEffectiveExpiryDate(product);
 
   if (effectiveExpiryDate) {
     const today = new Date();
@@ -199,10 +228,25 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
         )}
 
         {/* Quantità */}
-        <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 border border-zinc-200 dark:border-zinc-700">
+        <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 border border-zinc-200 dark:border-zinc-700 relative">
+
+          <RemoveQuantityPopup
+            isOpen={showDecreaseOptions}
+            onClose={(e) => {
+              e.stopPropagation();
+              setShowDecreaseOptions(false);
+            }}
+            productName={product.productName}
+            onResolve={(e: React.MouseEvent, resolution) => handleUpdateQuantity(e, -1, resolution)}
+          />
+
           <button
             className="p-1.5 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 transition-colors disabled:opacity-50"
-            onClick={(e) => handleUpdateQuantity(e, -1)}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!showDecreaseOptions) setShowDecreaseOptions(true);
+              else setShowDecreaseOptions(false);
+            }}
             disabled={quantity <= 0 || isUpdating}
           >
             <Minus className="w-4 h-4" />

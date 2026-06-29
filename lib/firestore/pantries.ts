@@ -285,3 +285,26 @@ export async function deletePantry(pantryId: string) {
   
   await batch.commit();
 }
+import { Product } from "@/types/firestore/productType";
+
+export function getEffectiveExpiryDate(product: Product): Date | null {
+  let openedExpiry: Date | null = null;
+  if (product.productOpenedExpiryAt) {
+    openedExpiry = typeof (product.productOpenedExpiryAt as any).toDate === 'function'
+      ? (product.productOpenedExpiryAt as Timestamp).toDate()
+      : new Date(product.productOpenedExpiryAt as any);
+  }
+
+  let productExpiry: Date | null = null;
+  if (product.expiryDateProduct) {
+    productExpiry = typeof (product.expiryDateProduct as any).toDate === 'function'
+      ? (product.expiryDateProduct as Timestamp).toDate()
+      : new Date(product.expiryDateProduct as any);
+  }
+
+  if (openedExpiry && productExpiry) {
+    return openedExpiry.getTime() < productExpiry.getTime() ? openedExpiry : productExpiry;
+  }
+
+  return openedExpiry || productExpiry || null;
+}

@@ -13,6 +13,7 @@ import { ProductEditPopup } from "@/components/ProductEditPopup";
 import { ProductAddPopup } from "@/components/ProductAddPopup";
 import { BarcodeScannerPopup } from "@/components/BarcodeScannerPopup";
 import { Search, Loader, PackageOpen, ArrowDownUp, ArrowDown, ArrowUp } from "lucide-react";
+import { getEffectiveExpiryDate } from "@/lib/firestore/pantries";
 
 export default function InventarioPage() {
   const [loading, setLoading] = useState(true);
@@ -107,16 +108,7 @@ export default function InventarioPage() {
     if (sortOrder === "none") return 0;
 
     const getExpiry = (product: Product) => {
-      let expiry: Date | null = null;
-      if (product.productOpenedExpiryAt) {
-        expiry = typeof (product.productOpenedExpiryAt as any).toDate === 'function'
-          ? (product.productOpenedExpiryAt as any).toDate()
-          : new Date(product.productOpenedExpiryAt as any);
-      } else if (product.expiryDateProduct) {
-        expiry = typeof (product.expiryDateProduct as any).toDate === 'function'
-          ? (product.expiryDateProduct as any).toDate()
-          : new Date(product.expiryDateProduct as any);
-      }
+      const expiry = getEffectiveExpiryDate(product);
       return expiry ? expiry.getTime() : Infinity;
     };
 

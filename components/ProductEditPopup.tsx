@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Trash2, Save} from "lucide-react";
+import { X, Trash2, Save } from "lucide-react";
 import type { Product } from "@/types/firestore/productType";
 import { updateProduct, deleteProduct } from "@/lib/firestore/products";
 import { Timestamp } from "firebase/firestore";
@@ -56,6 +56,7 @@ function ProductEditPopupContent({
   const [expiryDate, setExpiryDate] = useState(initialExpiryDate);
   const [category, setCategory] = useState("");
   const [shelfLifeDays, setShelfLifeDays] = useState<number | "">("");
+  const [carbonFootprint, setCarbonFootprint] = useState<number | "">("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [openedAt, setOpenedAt] = useState<Timestamp | null>(null);
@@ -66,6 +67,7 @@ function ProductEditPopupContent({
     setQuantity(product.productQuantity);
     setCategory(product.productCategory || "");
     setShelfLifeDays(product.shelfLifeDays ?? "");
+    setCarbonFootprint(product.carbonFootprint ?? "");
     setOpenedAt(product.productOpenedAt || null);
     setOpenedExpiryAt(product.productOpenedExpiryAt || null);
     return true;
@@ -85,8 +87,9 @@ function ProductEditPopupContent({
       await updateProduct(product.productId, {
         productName: name,
         productQuantity: quantity,
-        productCategory: category || undefined,
+        productCategory: category || "",
         shelfLifeDays: shelfLifeDays === "" ? null : Number(shelfLifeDays),
+        carbonFootprint: carbonFootprint === "" ? null : Number(carbonFootprint),
         expiryDateProduct: newExpiry as any,
       });
       onProductUpdated();
@@ -169,7 +172,7 @@ function ProductEditPopupContent({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-0">
-      <div 
+      <div
         className="bg-white dark:bg-zinc-900 w-full sm:max-w-md rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
@@ -235,14 +238,27 @@ function ProductEditPopupContent({
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Scadenza</label>
-            <input
-              type="date"
-              value={expiryDate}
-              onChange={(e) => setExpiryDate(e.target.value)}
-              className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Scadenza</label>
+              <input
+                type="date"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">CO₂ (grammi)</label>
+              <input
+                type="number"
+                min="0"
+                value={carbonFootprint}
+                onChange={(e) => setCarbonFootprint(e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder="es. 500"
+                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
           </div>
 
           {/* Stato Apertura */}
