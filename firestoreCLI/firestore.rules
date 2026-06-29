@@ -21,7 +21,7 @@ service cloud.firestore {
       allow create, delete: if isAuthenticated() && request.auth.uid == userId;
       
       // Modifica permessa al proprietario, oppure ad altri utenti ma SOLO sui campi relativi alle dispense 
-      // (questo serve per permettere all'owner di una dispensa di espellere un membro aggiornando il suo profilo)
+      // Serve per permettere all'owner di una dispensa di espellere un membro aggiornando il suo profilo)
       allow update: if isAuthenticated() && (
         request.auth.uid == userId ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userProfilePantryIds', 'userProfileCurrentPantryId'])
