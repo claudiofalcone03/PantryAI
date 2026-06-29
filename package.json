@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@genkit-ai/google-genai": "^1.39.0",
     "firebase": "^12.13.0",
+    "genkit": "^1.39.0",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",
