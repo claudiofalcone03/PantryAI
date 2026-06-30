@@ -1,15 +1,6 @@
-// Import the functions you need from the SDKs you need
-
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";  //Per usare il database
-//import { getAnalytics } from "firebase/analytics";   //Già presente nel SDK proposto da Firebase in origine
-
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -18,16 +9,24 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-  //measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID  //Serve perr google Analitycs
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-//const analytics = getAnalytics(app);
+// Evita crash di Firebase durante i refresh di Next.js
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
-const db = getFirestore(app);
+
+// Inizializza Firestore con CACHE OFFLINE per rendere il caricamento istantaneo
+let db: Firestore;
+if (typeof window !== "undefined" && !getApps().length) {
+  // Solo lato client e alla prima inizializzazione attiviamo la cache
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+  });
+} else {
+  // Fallback se siamo lato server o in un refresh
+  db = getFirestore(app);
+}
 
 export { app, auth, googleProvider, db };
-
-

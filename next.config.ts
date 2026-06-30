@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
+import withSerwistInit from "@serwist/next";
+
+const withSerwist = withSerwistInit({
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+  disable: process.env.NODE_ENV === "development",
+});
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["192.168.1.182", "10.31.12.14"], //Per test su wifi di casa e eduroam (30-06-26) non vale per google auth
+  turbopack: {},
+  allowedDevOrigins: ["192.168.1.182", "10.31.12.14", "172.20.10.2", "dark-banks-like.loca.lt"], //Per test su wifi di casa e eduroam (30-06-26) non vale per google auth
   images: {
     remotePatterns: [
       {
@@ -13,4 +21,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);
