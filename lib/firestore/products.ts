@@ -58,3 +58,41 @@ export async function deleteProduct(productId: string): Promise<void> {
   const productRef = doc(db, "products", productId);
   await deleteDoc(productRef);
 }
+
+// Recupera i prodotti in scadenza o già scaduti entro 7 giorni
+export async function getExpiringProductsByPantry(
+  pantryId: string,
+  daysUntilExpiry: number = 7
+): Promise<Product[]> {
+  const productsRef = collection(db, "products");
+
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + daysUntilExpiry);
+
+  // Nota: questa query richiede un indice composito su (productPantryId ASC, expiryDateProduct ASC)
+  // in Firestore. Se non esiste, Firestore restituirà un errore con il link per crearlo.
+  const q = query(
+    productsRef,
+    where("productPantryId", "==", pantryId),
+    where("expiryDateProduct", "<=", Timestamp.fromDate(targetDate))
+  );
+
+  const querySnapshot = await getDocs(q);
+  const products: Product[] = [];
+
+  querySnapshot.forEach((docSnap) => {
+    products.push({
+      productId: docSnap.id,
+      ...docSnap.data()
+    } as Product);
+  });
+
+  // Ordina in memoria per sicurezza (dal più scaduto/più vicino alla scadenza al più lontano)
+  products.sort((a, b) => {
+    const dateA = a.expiryDateProduct?.toMillis() || Number.MAX_SAFE_INTEGER;
+    const dateB = b.expiryDateProduct?.toMillis() || Number.MAX_SAFE_INTEGER;
+    return dateA - dateB;
+  });
+
+  return products;
+}
