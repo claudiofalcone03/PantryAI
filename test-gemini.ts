@@ -1,9 +1,15 @@
-import { generaRicetta } from './lib/genkit/genkit';
+import { generateRecipeFromIngredients } from './lib/genkit/genkit';
 
 async function main() {
     console.log("Inviando la richiesta a Gemini...");
-    const ingredienti = ["Zucchine", "Pomodori", "Formaggio", "Uova", "Pesto"];
-    const ricetta = await generaRicetta(ingredienti);
+    const ingredienti = [
+        { nome: "Zucchine", quantita: "1" },
+        { nome: "Pomodori", quantita: "2" },
+        { nome: "Formaggio", quantita: "100g" },
+        { nome: "Uova", quantita: "2" },
+        { nome: "Pesto", quantita: "q.b." }
+    ];
+    const ricetta = await generateRecipeFromIngredients(ingredienti);
 
     console.log("\n--- Risposta di Gemini  alle 17:10 ---");
     console.log(ricetta);
