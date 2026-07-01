@@ -116,8 +116,8 @@ export default function TestFirestorePage() {
         <main className="min-h-screen bg-gray-50 flex flex-col items-center p-6 gap-6">
             <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full flex flex-col gap-6 border border-gray-100">
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Test Firestore</h1>
-                    <p className="text-gray-500 text-sm">Invia un documento di prova alla raccolta &quot;tesi_test&quot; o testa i prodotti.</p>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Pagina test</h1>
+                    <p className="text-gray-500 text-sm">Pagina funzionalità test</p>
                 </div>
 
                 <button
