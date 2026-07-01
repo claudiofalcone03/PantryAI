@@ -98,7 +98,7 @@ export default function RicetteAIPage() {
 				}
 			}
 
-			const ricetta = await generateRecipeChatbot(userMessage, mappedProducts);
+			const ricetta = await generateRecipeChatbot(userMessage, messages, mappedProducts);
 			setMessages(prev => [...prev, { role: "ai", content: ricetta }]);
 		} catch (error) {
 			console.error("Errore durante la chat:", error);
