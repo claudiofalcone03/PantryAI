@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { User, LogOut, Layers, FileDown, Trash, Pencil, Copy, DoorOpen, Plus, UserPlus, CheckCircle, Settings } from "lucide-react";
+import { User, LogOut, Layers, FileDown, Trash, Pencil, Copy, DoorOpen, Plus, UserPlus, CheckCircle, Settings, Database } from "lucide-react";
 import Image from "next/image";
 import type { UserProfile } from "@/types/firestore/userProfileType";
 import type { Pantry } from "@/types/firestore/pantryType";
@@ -260,6 +260,16 @@ export default function ProfilePage() {
 							</button>
 						</div>
 					</div>
+
+					<button
+						className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-2xl border border-gray-200 dark:border-zinc-800 transition-colors"
+						onClick={() => router.push('/test-firestore')}
+					>
+						<div className="flex items-center space-x-3">
+							<Database className="w-5 h-5 text-purple-500 dark:text-purple-400" />
+							<span className="font-medium text-gray-900 dark:text-white">Pagina Test Firestore</span>
+						</div>
+					</button>
 
 					<button
 						className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-2xl border border-gray-200 dark:border-zinc-800 transition-colors"

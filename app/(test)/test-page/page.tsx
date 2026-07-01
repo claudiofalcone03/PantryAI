@@ -86,12 +86,38 @@ export default function TestFirestorePage() {
         }
     };
 
+    const handleTestNotification = async () => {
+        if (!("Notification" in window)) {
+            alert("Il tuo browser/dispositivo non supporta le notifiche Web Push.");
+            return;
+        }
+
+        let permission = Notification.permission;
+        if (permission !== "granted") {
+            permission = await Notification.requestPermission();
+        }
+
+        if (permission === "granted") {
+            if ("serviceWorker" in navigator) {
+                const registration = await navigator.serviceWorker.ready;
+                registration.showNotification("PantryAI 🥕", {
+                    body: "Evviva! Le notifiche PWA funzionano perfettamente!",
+                    icon: "/icon-192x192.png",
+                });
+            } else {
+                new Notification("PantryAI 🥕", { body: "Evviva! Le notifiche funzionano!" });
+            }
+        } else {
+            alert("Hai rifiutato le notifiche o non sono abilitate nelle impostazioni del tuo iPhone.");
+        }
+    };
+
     return (
         <main className="min-h-screen bg-gray-50 flex flex-col items-center p-6 gap-6">
             <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full flex flex-col gap-6 border border-gray-100">
                 <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Test Firestore</h1>
-                    <p className="text-gray-500 text-sm">Invia un documento di prova alla raccolta &quot;tesi_test&quot; o testa i prodotti.</p>
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">Pagina test</h1>
+                    <p className="text-gray-500 text-sm">Pagina funzionalità test</p>
                 </div>
 
                 <button
@@ -117,6 +143,14 @@ export default function TestFirestorePage() {
                 >
                     {loadingExpiring ? "Ricerca in corso..." : "Testa Query Scadenza"}
                 </button>
+
+                <button
+                    onClick={handleTestNotification}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-200 shadow-md shadow-indigo-200 flex items-center justify-center gap-2"
+                >
+                    Testa Notifiche Push (PWA)
+                </button>
+
 
                 {message && (
                     <div className={`p-4 rounded-xl text-sm ${message.includes("Errore") ? "bg-red-50 text-red-600 border border-red-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100"}`}>
