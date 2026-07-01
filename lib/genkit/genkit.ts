@@ -60,15 +60,20 @@ export async function generateRecipeFromIngredients(prodotti: { nome: string, qu
 }
 
 // Prompt role chatbot
-const promptRole = `Sei uno chef esperto e un assistente culinario. Il tuo obiettivo è aiutare l'utente con ricette, idee per cucinare e consigli su come ridurre gli sprechi alimentari. Rispondi in modo creativo, utile e sintetico.
-Ecco la richiesta dell'utente: `;
+const promptRole = `Sei uno chef esperto e un assistente culinario. Il tuo obiettivo è aiutare l'utente con ricette, idee per cucinare e consigli su come ridurre gli sprechi alimentari. Rispondi in modo creativo, utile e sintetico.`;
 
 // Genera ricette in base alla richiesta dell'utente
-export async function generateRecipeChatbot(promptChatbot: string) {
+export async function generateRecipeChatbot(promptChatbot: string, prodotti?: { nome: string, quantita: string }[]) {
     console.log("Inizio Chatbot in corso...");
     console.log("Messaggio utente:", promptChatbot);
 
-    const promptComplete = promptRole + promptChatbot;
+    let contextDispensa = "";
+    if (prodotti && prodotti.length > 0) {
+        const ingredientiFormattati = prodotti.map(p => `${p.quantita} di ${p.nome}`).join(", ");
+        contextDispensa = `\n\nContesto aggiuntivo: l'utente ha attualmente a disposizione nella sua dispensa i seguenti ingredienti: ${ingredientiFormattati}. Quando suggerisci una ricetta o rispondi, tieni a mente questi ingredienti e cerca di dare la priorità a ciò che l'utente ha già, se pertinente alla sua richiesta.`;
+    }
+
+    const promptComplete = promptRole + contextDispensa + "\n\nEcco la richiesta dell'utente: " + promptChatbot;
 
     console.log("\nPrompt chatbot:");
     console.log(promptComplete);

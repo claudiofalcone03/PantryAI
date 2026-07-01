@@ -85,7 +85,20 @@ export default function RicetteAIPage() {
 		setIsLoading(true);
 
 		try {
-			const ricetta = await generateRecipeChatbot(userMessage);
+			let mappedProducts = undefined;
+			if (auth.currentUser) {
+				const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+				const pantryId = userDoc.data()?.userProfileCurrentPantryId;
+				if (pantryId) {
+					const products = await getProductsByPantry(pantryId);
+					mappedProducts = products.filter(p => p.productQuantity > 0).map(p => ({
+						nome: p.productName,
+						quantita: `${p.productQuantity} ${p.productUnitOfMeasure || ''}`.trim()
+					}));
+				}
+			}
+
+			const ricetta = await generateRecipeChatbot(userMessage, mappedProducts);
 			setMessages(prev => [...prev, { role: "ai", content: ricetta }]);
 		} catch (error) {
 			console.error("Errore durante la chat:", error);

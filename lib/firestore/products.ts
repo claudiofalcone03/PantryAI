@@ -69,8 +69,6 @@ export async function getExpiringProductsByPantry(
   const targetDate = new Date();
   targetDate.setDate(targetDate.getDate() + daysUntilExpiry);
 
-  // Nota: questa query richiede un indice composito su (productPantryId ASC, expiryDateProduct ASC)
-  // in Firestore. Se non esiste, Firestore restituirà un errore con il link per crearlo.
   const q = query(
     productsRef,
     where("productPantryId", "==", pantryId),
