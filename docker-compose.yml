@@ -1,0 +1,15 @@
+services:
+  pantry-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      # Pass through node environment variables if needed
+      - NODE_ENV=production
+      # Uncomment and map your actual variables or use an env_file
+      # - NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY}
+    env_file:
+      - .env.local
+    restart: unless-stopped
