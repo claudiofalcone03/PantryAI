@@ -31,6 +31,8 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
+import { WebVitalTracker } from "@/components/WebVitalTracker";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -43,6 +45,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <WebVitalTracker />
         {children}
       </body>
     </html>
