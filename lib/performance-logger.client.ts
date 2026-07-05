@@ -3,8 +3,24 @@
 import type { MetricCategory, PerformanceData } from './performance-logger';
 
 export const logClientPerformance = (category: MetricCategory, data: Omit<PerformanceData, 'timestamp'>) => {
-  if (process.env.NODE_ENV === 'production') return;
+  // Rimosso il blocco production per permettere i test sulle performance
+
   
+  // Rilevamento delle condizioni di rete del client (supportato su Chrome)
+  let networkInfo = '';
+  if (typeof navigator !== 'undefined' && (navigator as any).connection) {
+    const conn = (navigator as any).connection;
+    const effectiveType = conn.effectiveType || 'unknown';
+    const downlink = conn.downlink || 0;
+    networkInfo = `Network: ${effectiveType} (${downlink}Mbps)`;
+  }
+
+  if (networkInfo) {
+    data.additionalInfo = data.additionalInfo 
+      ? `${data.additionalInfo} | ${networkInfo}` 
+      : networkInfo;
+  }
+
   // Fire and forget
   fetch('/api/log-performance', {
     method: 'POST',

@@ -15,7 +15,7 @@ export interface PerformanceData {
 const DATA_DIR = path.join(process.cwd(), 'performance-data');
 
 export async function appendPerformanceData(category: MetricCategory, data: PerformanceData) {
-  if (process.env.NODE_ENV === 'production') return; // Do not log to FS in prod
+  // Rimosso il blocco production per permettere i test sulle performance
 
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
