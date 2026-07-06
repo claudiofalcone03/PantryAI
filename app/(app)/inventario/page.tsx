@@ -14,6 +14,8 @@ import { ProductAddPopup } from "@/components/ProductAddPopup";
 import { BarcodeScannerPopup } from "@/components/BarcodeScannerPopup";
 import { Search, Loader, PackageOpen, ArrowDownUp, ArrowDown, ArrowUp } from "lucide-react";
 import { getEffectiveExpiryDate } from "@/lib/firestore/pantries";
+import { ProductListItemSkeleton } from "@/components/skeletons/ProductListItemSkeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function InventarioPage() {
   const [loading, setLoading] = useState(true);
@@ -122,11 +124,28 @@ export default function InventarioPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-[calc(100vh-80px)]">
+      <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950">
         <InventoryTopBar pantryName="Caricamento..." />
-        <div className="flex-1 flex items-center justify-center">
-          <Loader className="w-8 h-8 animate-spin text-green-600" />
-        </div>
+        <main className="flex-1 p-4 w-full max-w-3xl mx-auto flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-11 w-full rounded-2xl" />
+            <Skeleton className="h-11 w-11 rounded-2xl shrink-0" />
+            <Skeleton className="h-11 w-[46px] rounded-2xl shrink-0" />
+          </div>
+          <div className="flex gap-2 overflow-x-hidden pb-2">
+            <Skeleton className="h-8 w-16 rounded-full" />
+            <Skeleton className="h-8 w-20 rounded-full" />
+            <Skeleton className="h-8 w-24 rounded-full" />
+          </div>
+          <div className="flex-1 overflow-y-auto pb-24">
+            <ProductListItemSkeleton />
+            <ProductListItemSkeleton />
+            <ProductListItemSkeleton />
+            <ProductListItemSkeleton />
+            <ProductListItemSkeleton />
+            <ProductListItemSkeleton />
+          </div>
+        </main>
       </div>
     );
   }

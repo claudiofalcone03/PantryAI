@@ -11,6 +11,8 @@ import Image from "next/image";
 import type { UserProfile } from "@/types/firestore/userProfileType";
 import type { Pantry } from "@/types/firestore/pantryType";
 import { getUserPantries, leavePantry, createPantry, joinPantryWithCode, setCurrentPantry } from "@/lib/firestore/pantries";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { PantryCardSkeleton } from "@/components/skeletons/PantryCardSkeleton";
 
 export default function ProfilePage() {
 	const router = useRouter();
@@ -21,6 +23,7 @@ export default function ProfilePage() {
 		currentPantryId?: string | null;
 	} | null>(null);
 	const [pantries, setPantries] = useState<Pantry[]>([]);  //Vettore dispense utente
+	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
 		const fetchUser = async () => {
@@ -51,6 +54,9 @@ export default function ProfilePage() {
 					photoURL: photoURL,
 					currentPantryId: currentPantryId
 				});
+				setLoading(false);
+			} else {
+				setLoading(false);
 			}
 		};
 
@@ -139,6 +145,36 @@ export default function ProfilePage() {
 			alert("Errore: " + error.message);
 		}
 	};
+
+	if (loading) {
+		return (
+			<div className="flex flex-col min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
+				<header className="sticky top-0 z-10 px-4 py-6 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Impostazioni</h1>
+				</header>
+				<main className="flex-1 px-4 py-6 max-w-md mx-auto w-full">
+					<div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-gray-200 dark:border-zinc-800 mb-8 flex flex-col items-center">
+						<Skeleton className="w-24 h-24 rounded-full mb-4" />
+						<Skeleton className="h-6 w-32 mb-1" />
+						<Skeleton className="h-4 w-48" />
+					</div>
+					<div className="space-y-4">
+						<Skeleton className="h-14 w-full rounded-2xl" />
+						<div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 overflow-hidden">
+							<div className="p-4 border-b border-gray-200 dark:border-zinc-800 flex items-center space-x-3 bg-gray-50 dark:bg-zinc-800/50">
+								<Skeleton className="w-5 h-5 rounded-full" />
+								<Skeleton className="h-5 w-32" />
+							</div>
+							<div className="p-4">
+								<PantryCardSkeleton />
+								<PantryCardSkeleton />
+							</div>
+						</div>
+					</div>
+				</main>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-col min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
