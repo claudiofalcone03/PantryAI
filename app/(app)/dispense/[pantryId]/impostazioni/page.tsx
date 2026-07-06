@@ -9,6 +9,7 @@ import {
   UserMinus, Crown, User as UserIcon
 } from "lucide-react";
 import { type Pantry, DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   updatePantryName,
   updatePantryCategories,
@@ -174,8 +175,22 @@ export default function PantrySettingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] flex items-center justify-center">
-        <p className="text-gray-500">Caricamento...</p>
+      <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-24">
+        <div className="px-4 py-6 max-w-2xl mx-auto space-y-6">
+          <div className="flex items-center space-x-4 mb-6">
+            <Skeleton className="w-9 h-9 rounded-full shrink-0" />
+            <Skeleton className="h-8 w-48" />
+          </div>
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-zinc-800 space-y-4">
+             <Skeleton className="h-6 w-32 mb-4" />
+             <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-zinc-800 space-y-4">
+             <Skeleton className="h-6 w-48 mb-4" />
+             <Skeleton className="h-10 w-full rounded-xl" />
+             <Skeleton className="h-10 w-full rounded-xl" />
+          </div>
+        </div>
       </main>
     );
   }

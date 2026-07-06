@@ -8,6 +8,7 @@ import { getExpiringProductsByPantry, getProductsByPantry } from "@/lib/firestor
 import { generateRecipeExpiration, generateRecipeChatbot, generateRecipeFromIngredients, getGeminiModelName } from "@/lib/genkit/genkit";
 import type { Product } from "@/types/firestore/productType";
 import SelectItemForChatbot from "@/components/SelectItemForChatbot";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 type Message = {
 	role: "user" | "ai"; //Per distinguere chi ha scritto
@@ -193,9 +194,16 @@ export default function RicetteAIPage() {
 
 				{isLoading && (
 					<div className="flex justify-start">
-						<div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl rounded-tl-none px-4 py-3 text-zinc-800 dark:text-zinc-200 shadow-sm flex items-center gap-2">
-							<Loader2 className="w-4 h-4 animate-spin text-green-600" />
-							<span>Lo Chef sta pensando...</span>
+						<div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl rounded-tl-none px-4 py-4 w-full max-w-[85%] shadow-sm">
+							<div className="flex items-center gap-2 mb-3 text-green-600 text-sm font-medium">
+								<Loader2 className="w-4 h-4 animate-spin" />
+								<span>Lo Chef sta pensando...</span>
+							</div>
+							<div className="space-y-2">
+								<Skeleton className="h-4 w-full" />
+								<Skeleton className="h-4 w-5/6" />
+								<Skeleton className="h-4 w-4/6" />
+							</div>
 						</div>
 					</div>
 				)}

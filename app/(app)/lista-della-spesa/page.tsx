@@ -15,6 +15,8 @@ import { BarcodeScannerPopup } from "@/components/BarcodeScannerPopup";
 import { ShoppingListItem } from "@/components/ShoppingListItem";
 import { Search, Loader, CheckCircle } from "lucide-react";
 import { InventoryTopBar } from "@/components/InventoryTopBar";
+import { ShoppingListItemSkeleton } from "@/components/skeletons/ShoppingListItemSkeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function ListaSpesaPage() {
   const [loading, setLoading] = useState(true);
@@ -145,11 +147,26 @@ export default function ListaSpesaPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-[calc(100vh-80px)]">
-        <InventoryTopBar pantryName="Caricamento..." />
-        <div className="flex-1 flex items-center justify-center">
-          <Loader className="w-8 h-8 animate-spin text-green-600" />
-        </div>
+      <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950">
+        <ShoppingListTopBar pantryName="Caricamento..." />
+        <main className="flex-1 p-4 w-full max-w-3xl mx-auto flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-11 w-full rounded-2xl" />
+          </div>
+          <div className="flex gap-2 overflow-x-hidden pb-2">
+            <Skeleton className="h-8 w-16 rounded-full" />
+            <Skeleton className="h-8 w-20 rounded-full" />
+            <Skeleton className="h-8 w-24 rounded-full" />
+          </div>
+          <div className="flex-1 overflow-y-auto pb-24">
+            <ShoppingListItemSkeleton />
+            <ShoppingListItemSkeleton />
+            <ShoppingListItemSkeleton />
+            <ShoppingListItemSkeleton />
+            <ShoppingListItemSkeleton />
+            <ShoppingListItemSkeleton />
+          </div>
+        </main>
       </div>
     );
   }

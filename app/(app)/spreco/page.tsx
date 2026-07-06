@@ -5,7 +5,8 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { getProductHistoryByPantry, deleteProductHistoryLog } from "@/lib/firestore/productHistory";
 import type { ProductHistoryLog } from "@/types/firestore/productHistoryType";
-import { Loader, TrendingUp, TrendingDown, Leaf, AlertTriangle, X } from "lucide-react";
+import { Leaf, AlertTriangle, TrendingUp, TrendingDown, X } from "lucide-react";
+import { CardSkeleton } from "@/components/skeletons/CardSkeleton";
 
 export default function SprecoPage() {
   const [loading, setLoading] = useState(true);
@@ -64,8 +65,22 @@ export default function SprecoPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <Loader className="w-8 h-8 animate-spin text-green-600" />
+      <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+        <header className="sticky top-0 z-10 px-4 py-6 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <h1 className="text-2xl font-bold">Impatto Ambientale</h1>
+        </header>
+        <main className="flex-1 p-4 w-full max-w-3xl mx-auto flex flex-col gap-6 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
+          <CardSkeleton />
+          <div className="space-y-4">
+            <CardSkeleton />
+            <CardSkeleton />
+            <CardSkeleton />
+          </div>
+        </main>
       </div>
     );
   }
