@@ -1,5 +1,5 @@
 import { db } from "../firebase";
-import { collection, doc, setDoc, getDocs, query, where, serverTimestamp, Timestamp, deleteDoc } from "firebase/firestore";
+import { collection, doc, setDoc, getDocs, serverTimestamp, Timestamp, deleteDoc } from "firebase/firestore";
 import type { ProductHistoryLog } from "../../types/firestore/productHistoryType";
 
 // Recupero lo storico dei prodotti per una specifica dispensa

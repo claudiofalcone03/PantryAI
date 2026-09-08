@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -9,14 +8,15 @@ import { getShoppingListItemsByPantry, removeProductFromShoppingList } from "@/l
 import { type Product } from "@/types/firestore/productType";
 import { type ShoppingListItem as ShoppingListItemType } from "@/types/firestore/shoppingListItemType";
 import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
-import { ShoppingListTopBar } from "@/components/ShoppingListTopBar";
-import { ProductAddPopup } from "@/components/ProductAddPopup";
-import { BarcodeScannerPopup } from "@/components/BarcodeScannerPopup";
-import { ShoppingListItem } from "@/components/ShoppingListItem";
+import {
+  ShoppingListTopBar,
+  ProductAddPopup,
+  BarcodeScannerPopup,
+  ShoppingListItem,
+  ShoppingListItemSkeleton,
+  Skeleton
+} from "@/components";
 import { Search, Loader, CheckCircle } from "lucide-react";
-import { InventoryTopBar } from "@/components/InventoryTopBar";
-import { ShoppingListItemSkeleton } from "@/components/skeletons/ShoppingListItemSkeleton";
-import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function ListaSpesaPage() {
   const [loading, setLoading] = useState(true);

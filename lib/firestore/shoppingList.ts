@@ -94,7 +94,7 @@ export async function updateShoppingListItemStatus(
   memberName?: string
 ): Promise<void> {
   const itemRef = doc(db, "shoppingListItems", listItemId);
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     listItemStatus: newStatus,
     listItemUpdatedAt: serverTimestamp(),
   };

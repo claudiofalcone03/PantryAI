@@ -11,8 +11,7 @@ import Image from "next/image";
 import type { UserProfile } from "@/types/firestore/userProfileType";
 import type { Pantry } from "@/types/firestore/pantryType";
 import { getUserPantries, leavePantry, createPantry, joinPantryWithCode, setCurrentPantry } from "@/lib/firestore/pantries";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { PantryCardSkeleton } from "@/components/skeletons/PantryCardSkeleton";
+import { Skeleton, PantryCardSkeleton } from "@/components";
 
 export default function ProfilePage() {
 	const router = useRouter();

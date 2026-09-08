@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { X, Check } from 'lucide-react';
 import type { Product } from "@/types/firestore/productType";

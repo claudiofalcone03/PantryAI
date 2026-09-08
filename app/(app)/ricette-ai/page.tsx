@@ -7,8 +7,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { getExpiringProductsByPantry, getProductsByPantry } from "@/lib/firestore/products";
 import { generateRecipeExpiration, generateRecipeChatbot, generateRecipeFromIngredients, getGeminiModelName } from "@/lib/genkit/genkit";
 import type { Product } from "@/types/firestore/productType";
-import SelectItemForChatbot from "@/components/SelectItemForChatbot";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { SelectItemForChatbot, Skeleton } from "@/components";
 
 type Message = {
 	role: "user" | "ai"; //Per distinguere chi ha scritto

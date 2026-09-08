@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
@@ -8,7 +7,7 @@ import { updateProduct } from "@/lib/firestore/products";
 import { addProductToShoppingList, removeProductFromShoppingList } from "@/lib/firestore/shoppingList";
 import { addProductHistoryLog } from "@/lib/firestore/productHistory";
 import { Timestamp } from "firebase/firestore";
-import { RemoveQuantityPopup } from "./RemoveQuantityPopup";
+import { RemoveQuantityPopup } from "../popups/RemoveQuantityPopup";
 import { getEffectiveExpiryDate } from "@/lib/firestore/pantries";
 
 interface ProductListItemProps {
@@ -18,22 +17,28 @@ interface ProductListItemProps {
 }
 
 export function ProductListItem({ product, onClick, onProductUpdated }: ProductListItemProps) {
+  const [prevQuantity, setPrevQuantity] = useState(product.productQuantity);
   const [quantity, setQuantity] = useState(product.productQuantity);
+  if (product.productQuantity !== prevQuantity) {
+    setPrevQuantity(product.productQuantity);
+    setQuantity(product.productQuantity);
+  }
+
+  const [prevInShoppingList, setPrevInShoppingList] = useState(product.addToShoppingList);
+  const [inShoppingList, setInShoppingList] = useState(product.addToShoppingList);
+  if (product.addToShoppingList !== prevInShoppingList) {
+    setPrevInShoppingList(product.addToShoppingList);
+    setInShoppingList(product.addToShoppingList);
+  }
+
   const [isUpdating, setIsUpdating] = useState(false);
   const [isShoppingListUpdating, setIsShoppingListUpdating] = useState(false);
-  const [inShoppingList, setInShoppingList] = useState(product.addToShoppingList);
   const [isOpening, setIsOpening] = useState(false);
   const [showDecreaseOptions, setShowDecreaseOptions] = useState(false);
 
-  //Fix incoerenza ID
-  React.useEffect(() => {
-    setQuantity(product.productQuantity);
-    setInShoppingList(product.addToShoppingList);
-  }, [product.productQuantity, product.addToShoppingList]);
-
   //Modifica la quantità
   const handleUpdateQuantity = async (e: React.MouseEvent, delta: number, resolution?: 'consumed' | 'wasted') => {
-    e.stopPropagation(); //
+    e.stopPropagation();
     if (!product.productId || isUpdating) return;
 
     const newQuantity = Math.max(0, quantity + delta);
@@ -45,7 +50,6 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
 
     try {
       await updateProduct(product.productId, { productQuantity: newQuantity });
-      product.productQuantity = newQuantity;
 
       // Se rimuovo un prodotto aggiungo allo storico
       if (delta < 0 && resolution) {
@@ -80,6 +84,7 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
         }
       }
 
+      onProductUpdated?.();
     } catch (error) {
       console.error("Errore aggiornamento quantità:", error);
       setQuantity(quantity);
@@ -98,14 +103,11 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
 
     try {
       if (!inShoppingList) {
-        const newId = await addProductToShoppingList(product);
-        product.productShoppingListItemId = newId;
-        product.addToShoppingList = true;
+        await addProductToShoppingList(product);
       } else {
         await removeProductFromShoppingList(product);
-        product.productShoppingListItemId = null;
-        product.addToShoppingList = false;
       }
+      onProductUpdated?.();
     } catch (error) {
       console.error("Errore modifica lista della spesa:", error);
       setInShoppingList(inShoppingList);
@@ -134,9 +136,6 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
         productOpenedExpiryAt: expiryDateTimestamp,
       });
 
-      product.productOpenedAt = openedAtTimestamp;
-      product.productOpenedExpiryAt = expiryDateTimestamp;
-
       if (onProductUpdated) {
         onProductUpdated();
       }
@@ -162,31 +161,28 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
     const expCopy = new Date(effectiveExpiryDate);
     expCopy.setHours(0, 0, 0, 0);
 
-    const diffTime = expCopy.getTime() - today.getTime(); //Differenza in millisecondi
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); //Conversione in giorni
+    const diffTime = expCopy.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays <= 0) {
-      statusColor = "bg-red-500";
-    } else if (diffDays <= 7) {
-      statusColor = "bg-orange-500";
+    if (diffDays < 0) {
+      statusColor = "bg-red-500"; // Scaduto
+    } else if (diffDays <= 3) {
+      statusColor = "bg-yellow-500"; // In scadenza
     }
 
-    formattedDate = effectiveExpiryDate.toLocaleDateString("it-IT", {
+    formattedDate = expCopy.toLocaleDateString("it-IT", {
       day: "2-digit",
-      month: "short",
+      month: "2-digit",
       year: "numeric"
     });
-  } else {
-    // Nessuna data di scadenza
-    statusColor = "bg-gray-300";
   }
 
   return (
     <div
-      className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm hover:shadow-md transition-shadow cursor-pointer mb-3"
       onClick={onClick}
+      className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all cursor-pointer mb-3"
     >
-      <div className="flex flex-col gap-1 flex-1 min-w-0 pr-4">
+      <div className="flex-1 min-w-0 pr-4">
         <div className="flex items-center gap-2">
           {/* Pallino status */}
           <div className={`w-3 h-3 rounded-full ${statusColor} shrink-0`} title="Status" />

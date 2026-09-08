@@ -6,7 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { getProductHistoryByPantry, deleteProductHistoryLog } from "@/lib/firestore/productHistory";
 import type { ProductHistoryLog } from "@/types/firestore/productHistoryType";
 import { Leaf, AlertTriangle, TrendingUp, TrendingDown, X } from "lucide-react";
-import { CardSkeleton } from "@/components/skeletons/CardSkeleton";
+import { CardSkeleton } from "@/components";
 
 export default function SprecoPage() {
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,16 @@ export default function SprecoPage() {
   }, []);
 
   useEffect(() => {
-    fetchHistory();
+    let mounted = true;
+    const init = async () => {
+      if (mounted) {
+        await fetchHistory();
+      }
+    };
+    init();
+    return () => {
+      mounted = false;
+    };
   }, [fetchHistory]);
 
   const handleDeleteLog = async (logId: string) => {

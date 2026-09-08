@@ -1,6 +1,6 @@
 import React from "react";
 import AppGuard from "./AppGuard";
-import { DownNavbar } from "@/components/DownNavbar";
+import { DownNavbar } from "@/components";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
 	return (

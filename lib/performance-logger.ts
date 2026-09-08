@@ -60,13 +60,13 @@ export async function withServerPerformanceTracking<T>(
     });
     
     return result;
-  } catch (error: any) {
+  } catch (error: unknown) {
     const durationMs = Date.now() - start;
     await appendPerformanceData(category, {
       name,
       durationMs,
       status: 'error',
-      additionalInfo: error?.message || 'Unknown error'
+      additionalInfo: error instanceof Error ? error.message : 'Unknown error'
     });
     throw error;
   }

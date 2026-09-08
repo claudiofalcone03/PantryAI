@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     
     await appendPerformanceData(category, data);
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Failed to log performance' }, { status: 500 });
   }
 }

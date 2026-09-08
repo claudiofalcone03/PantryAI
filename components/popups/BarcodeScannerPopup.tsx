@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { X, Loader } from "lucide-react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
@@ -13,22 +15,28 @@ export function BarcodeScannerPopup({ isOpen, onClose, onScanSuccess }: BarcodeS
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) {
+      setIsProcessing(false);
+      setErrorMessage("");
+    }
+  }
+
   useEffect(() => {
     if (!isOpen) return;
-
-    setIsProcessing(false);
-    setErrorMessage("");
-
-    // Controllo permessi fotocamera e HTTPS
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setErrorMessage("Fotocamera non accessibile. Assicurati di usare HTTPS.");
-      return;
-    }
 
     let scanner: Html5Qrcode | null = null;
     let isRequesting = false;
 
     const startScanner = async () => {
+      // Controllo permessi fotocamera e HTTPS
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setErrorMessage("Fotocamera non accessibile. Assicurati di usare HTTPS.");
+        return;
+      }
+
       try {
         console.log("Avvio scanner");
         scanner = new Html5Qrcode("barcode-reader", {
@@ -44,7 +52,7 @@ export function BarcodeScannerPopup({ isOpen, onClose, onScanSuccess }: BarcodeS
           { facingMode: "environment" }, // Usa la fotocamera posteriore se disponibile
           {
             fps: 60,
-            qrbox: (viewfinderWidth, viewfinderHeight) => {
+            qrbox: (viewfinderWidth) => {
               const width = Math.floor(viewfinderWidth * 0.8);
               return { width: width, height: 150 };
             },
@@ -75,7 +83,7 @@ export function BarcodeScannerPopup({ isOpen, onClose, onScanSuccess }: BarcodeS
               }, 3000);
             }
           },
-          (errorMessage) => {
+          () => {
             // Ignora errori di scansione continui 
           }
         );

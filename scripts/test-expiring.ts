@@ -1,4 +1,4 @@
-import { getExpiringProductsByPantry } from './lib/firestore/products';
+import { getExpiringProductsByPantry } from '@/lib/firestore/products';
 
 async function main() {
     const testPantryId = "test-dispensa-123";
@@ -7,9 +7,9 @@ async function main() {
         const products = await getExpiringProductsByPantry(testPantryId, 7);
         console.log(`Trovati ${products.length} prodotti in scadenza.`);
         console.log(products);
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error("Errore durante il test:");
-        console.error(e.message);
+        console.error(e instanceof Error ? e.message : String(e));
     }
 }
 

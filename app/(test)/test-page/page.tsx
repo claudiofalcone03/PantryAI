@@ -78,9 +78,9 @@ export default function TestFirestorePage() {
             const products = await getExpiringProductsByPantry(pantryId, 7);
             setExpiringProducts(products);
             setMessage(`Test completato! Trovati ${products.length} prodotti in scadenza.`);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            setMessage(`Errore nel recupero: ${error.message}`);
+            setMessage(`Errore nel recupero: ${error instanceof Error ? error.message : String(error)}`);
         } finally {
             setLoadingExpiring(false);
         }

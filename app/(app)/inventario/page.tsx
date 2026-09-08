@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -7,15 +6,17 @@ import { doc, getDoc } from "firebase/firestore";
 import { getProductsByPantry } from "@/lib/firestore/products";
 import { type Product } from "@/types/firestore/productType";
 import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
-import { InventoryTopBar } from "@/components/InventoryTopBar";
-import { ProductListItem } from "@/components/ProductListItem";
-import { ProductEditPopup } from "@/components/ProductEditPopup";
-import { ProductAddPopup } from "@/components/ProductAddPopup";
-import { BarcodeScannerPopup } from "@/components/BarcodeScannerPopup";
-import { Search, Loader, PackageOpen, ArrowDownUp, ArrowDown, ArrowUp } from "lucide-react";
+import {
+  InventoryTopBar,
+  ProductListItem,
+  ProductEditPopup,
+  ProductAddPopup,
+  BarcodeScannerPopup,
+  ProductListItemSkeleton,
+  Skeleton
+} from "@/components";
+import { Search, PackageOpen, ArrowDownUp, ArrowDown, ArrowUp } from "lucide-react";
 import { getEffectiveExpiryDate } from "@/lib/firestore/pantries";
-import { ProductListItemSkeleton } from "@/components/skeletons/ProductListItemSkeleton";
-import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function InventarioPage() {
   const [loading, setLoading] = useState(true);

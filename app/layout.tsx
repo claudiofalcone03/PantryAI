@@ -31,7 +31,7 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
-import { WebVitalTracker } from "@/components/WebVitalTracker";
+import { WebVitalTracker } from "@/components";
 
 export default function RootLayout({
   children,

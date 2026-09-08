@@ -9,7 +9,7 @@ import {
   UserMinus, Crown, User as UserIcon
 } from "lucide-react";
 import { type Pantry, DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { Skeleton } from "@/components";
 import {
   updatePantryName,
   updatePantryCategories,
@@ -17,6 +17,8 @@ import {
   updateMemberRoleInPantry,
   deletePantry
 } from "@/lib/firestore/pantries";
+
+const getErrorMessage = (err: unknown) => err instanceof Error ? err.message : String(err);
 
 export default function PantrySettingsPage() {
   const params = useParams();
@@ -70,8 +72,8 @@ export default function PantrySettingsPage() {
       setPantry(prev => prev ? { ...prev, pantryName: editNameValue.trim() } : null);
       setIsEditingName(false);
       alert("Nome dispensa aggiornato!");
-    } catch (error: any) {
-      alert("Errore aggiornamento nome: " + error.message);
+    } catch (error: unknown) {
+      alert("Errore aggiornamento nome: " + getErrorMessage(error));
     }
   };
 
@@ -88,8 +90,8 @@ export default function PantrySettingsPage() {
       await updatePantryCategories(pantry.pantryId!, newCats);
       setPantry(prev => prev ? { ...prev, pantryCategories: newCats } : null);
       setNewCategoryValue("");
-    } catch (error: any) {
-      alert("Errore aggiunta categoria: " + error.message);
+    } catch (error: unknown) {
+      alert("Errore aggiunta categoria: " + getErrorMessage(error));
     }
   };
 
@@ -103,8 +105,8 @@ export default function PantrySettingsPage() {
     try {
       await updatePantryCategories(pantry.pantryId!, newCats);
       setPantry(prev => prev ? { ...prev, pantryCategories: newCats } : null);
-    } catch (error: any) {
-      alert("Errore rimozione categoria: " + error.message);
+    } catch (error: unknown) {
+      alert("Errore rimozione categoria: " + getErrorMessage(error));
     }
   };
 
@@ -123,8 +125,8 @@ export default function PantrySettingsPage() {
         };
       });
       alert("Utente espulso.");
-    } catch (error: any) {
-      alert("Errore espulsione utente: " + error.message);
+    } catch (error: unknown) {
+      alert("Errore espulsione utente: " + getErrorMessage(error));
     }
   };
 
@@ -144,8 +146,8 @@ export default function PantrySettingsPage() {
         return { ...prev, pantryMembers: newMembers };
       });
       alert("Ruolo aggiornato.");
-    } catch (error: any) {
-      alert("Errore modifica ruolo: " + error.message);
+    } catch (error: unknown) {
+      alert("Errore modifica ruolo: " + getErrorMessage(error));
     }
   };
 
@@ -161,8 +163,8 @@ export default function PantrySettingsPage() {
       await deletePantry(pantry.pantryId!);
       alert("Dispensa eliminata con successo.");
       router.push("/profilo");
-    } catch (error: any) {
-      alert("Errore eliminazione dispensa: " + error.message);
+    } catch (error: unknown) {
+      alert("Errore eliminazione dispensa: " + getErrorMessage(error));
     }
   };
 
@@ -327,8 +329,8 @@ export default function PantrySettingsPage() {
                             const newCats = [...(pantry.pantryCategories || []), cat];
                             await updatePantryCategories(pantry.pantryId!, newCats);
                             setPantry(prev => prev ? { ...prev, pantryCategories: newCats } : null);
-                          } catch (error: any) {
-                            alert("Errore aggiunta categoria: " + error.message);
+                          } catch (error: unknown) {
+                            alert("Errore aggiunta categoria: " + getErrorMessage(error));
                           }
                         }}
                         className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700 border border-gray-200 dark:border-zinc-700 transition-colors"

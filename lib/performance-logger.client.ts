@@ -2,17 +2,24 @@
 
 import type { MetricCategory, PerformanceData } from './performance-logger';
 
+interface NetworkInformation {
+  effectiveType?: string;
+  downlink?: number;
+}
+
 export const logClientPerformance = (category: MetricCategory, data: Omit<PerformanceData, 'timestamp'>) => {
   // Rimosso il blocco production per permettere i test sulle performance
 
-  
   // Rilevamento delle condizioni di rete del client (supportato su Chrome)
   let networkInfo = '';
-  if (typeof navigator !== 'undefined' && (navigator as any).connection) {
-    const conn = (navigator as any).connection;
-    const effectiveType = conn.effectiveType || 'unknown';
-    const downlink = conn.downlink || 0;
-    networkInfo = `Network: ${effectiveType} (${downlink}Mbps)`;
+  if (typeof navigator !== 'undefined') {
+    const nav = navigator as Navigator & { connection?: NetworkInformation };
+    if (nav.connection) {
+      const conn = nav.connection;
+      const effectiveType = conn.effectiveType || 'unknown';
+      const downlink = conn.downlink || 0;
+      networkInfo = `Network: ${effectiveType} (${downlink}Mbps)`;
+    }
   }
 
   if (networkInfo) {
@@ -50,13 +57,13 @@ export const withClientPerformanceTracking = async <T>(
     });
     
     return result;
-  } catch (error: any) {
+  } catch (error: unknown) {
     const durationMs = performance.now() - start;
     logClientPerformance(category, {
       name,
       durationMs,
       status: 'error',
-      additionalInfo: error?.message || 'Unknown error'
+      additionalInfo: error instanceof Error ? error.message : 'Unknown error'
     });
     throw error;
   }

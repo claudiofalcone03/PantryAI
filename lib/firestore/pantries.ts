@@ -287,20 +287,22 @@ export async function deletePantry(pantryId: string) {
 }
 import { Product } from "@/types/firestore/productType";
 
-export function getEffectiveExpiryDate(product: Product): Date | null {
-  let openedExpiry: Date | null = null;
-  if (product.productOpenedExpiryAt) {
-    openedExpiry = typeof (product.productOpenedExpiryAt as any).toDate === 'function'
-      ? (product.productOpenedExpiryAt as Timestamp).toDate()
-      : new Date(product.productOpenedExpiryAt as any);
+function toValidDate(val: unknown): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  if (typeof val === "object" && "toDate" in val && typeof (val as { toDate: () => unknown }).toDate === "function") {
+    return (val as Timestamp).toDate();
   }
+  if (typeof val === "string" || typeof val === "number") {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
 
-  let productExpiry: Date | null = null;
-  if (product.expiryDateProduct) {
-    productExpiry = typeof (product.expiryDateProduct as any).toDate === 'function'
-      ? (product.expiryDateProduct as Timestamp).toDate()
-      : new Date(product.expiryDateProduct as any);
-  }
+export function getEffectiveExpiryDate(product: Product): Date | null {
+  const openedExpiry = toValidDate(product.productOpenedExpiryAt);
+  const productExpiry = toValidDate(product.expiryDateProduct);
 
   if (openedExpiry && productExpiry) {
     return openedExpiry.getTime() < productExpiry.getTime() ? openedExpiry : productExpiry;

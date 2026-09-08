@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 
 interface DecreaseQuantityPopupProps {
@@ -22,7 +24,7 @@ export function RemoveQuantityPopup({ isOpen, onClose, productName, onResolve }:
         <div>
           <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-1">Conferma azione</h3>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            Stai rimuovendo un'unità di <strong>{productName}</strong>.
+            Stai rimuovendo un&apos;unità di <strong>{productName}</strong>.
           </p>
         </div>
 
