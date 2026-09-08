@@ -47,4 +47,3 @@ next-env.d.ts
 certificates
 .genkit
 test-gemini.ts
-performance-data/

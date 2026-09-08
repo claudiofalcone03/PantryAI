@@ -1,0 +1,5 @@
+Timestamp,Name,Duration(ms),Status,PayloadSize,AdditionalInfo
+2026-09-08T17:15:35.717Z,getProductsByPantry,143.90,success,17,Network: 4g (10Mbps)
+2026-09-08T17:15:39.376Z,getProductsByPantry,122.80,success,17,Network: 4g (10Mbps)
+2026-09-08T17:15:39.376Z,getProductsByPantry,121.70,success,17,Network: 4g (10Mbps)
+2026-09-08T17:15:45.928Z,getProductsByPantry,188.20,success,17,Network: 4g (10Mbps)
