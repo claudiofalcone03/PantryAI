@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "PantryAI - Architettura Runtime (Versione Tesi)",
+    "subtitle": "Architettura di riferimento v1.0.0-tesi con Serwist PWA, Next.js 16, Firebase e Google Genkit",
+    "output": "tesi-runtime-architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "full-runtime",
+        "label": "Panoramica Completa Runtime",
+        "focus": ["client-pwa", "service-worker", "scanner", "app-guard", "next-server", "firebase-auth", "cloud-firestore", "genkit-ai", "open-food-facts"],
+        "note": "Topologia complessiva tra client PWA, runtime Next.js e servizi cloud/esterni."
+      },
+      {
+        "id": "inventory-and-session",
+        "label": "Autenticazione & Gestione Dispensa",
+        "focus": ["client-pwa", "app-guard", "firebase-auth", "next-server", "cloud-firestore"],
+        "note": "Flusso di controllo accesso con AppGuard, sessione attiva e sincronizzazione Firestore."
+      },
+      {
+        "id": "ai-flows",
+        "label": "Flussi AI con Google Genkit",
+        "focus": ["client-pwa", "next-server", "genkit-ai", "cloud-firestore"],
+        "note": "Estrazione prodotti in scadenza dalla dispensa e generazione ricette con Gemini 3.1 Flash Lite."
+      },
+      {
+        "id": "barcode-and-sustainability",
+        "label": "Scansione Barcode & Sostenibilità",
+        "focus": ["scanner", "client-pwa", "next-server", "open-food-facts", "cloud-firestore"],
+        "note": "Riconoscimento ottico EAN a 60 fps, arricchimento Open Food Facts e calcolo impronta CO2."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "scanner",
+      "type": "frontend",
+      "label": "Barcode Scanner",
+      "sublabel": "html5-qrcode (60 FPS)",
+      "pos": [60, 80],
+      "size": [160, 64],
+      "tag": "EAN-13 / UPC"
+    },
+    {
+      "id": "client-pwa",
+      "type": "frontend",
+      "label": "Client PWA",
+      "sublabel": "Next.js App Router / React 19",
+      "brand": "react",
+      "pos": [60, 260],
+      "size": [160, 64],
+      "tag": "Mobile-First"
+    },
+    {
+      "id": "service-worker",
+      "type": "frontend",
+      "label": "Serwist Service Worker",
+      "sublabel": "Offline-First & App Shell",
+      "pos": [60, 440],
+      "size": [160, 64],
+      "tag": "Cache Runtime"
+    },
+    {
+      "id": "app-guard",
+      "type": "security",
+      "label": "AppGuard Router",
+      "sublabel": "Session & Pantry Guard",
+      "pos": [340, 260],
+      "size": [160, 64],
+      "tag": "Auth Flow"
+    },
+    {
+      "id": "firebase-auth",
+      "type": "security",
+      "label": "Firebase Auth",
+      "sublabel": "Google OAuth & Token",
+      "brand": "firebase",
+      "pos": [620, 80],
+      "size": [165, 64]
+    },
+    {
+      "id": "next-server",
+      "type": "backend",
+      "label": "Next.js Server Runtime",
+      "sublabel": "Server Actions & Handlers",
+      "brand": "next-js",
+      "pos": [620, 260],
+      "size": [165, 64]
+    },
+    {
+      "id": "perf-api",
+      "type": "backend",
+      "label": "Telemetry API",
+      "sublabel": "/api/log-performance",
+      "pos": [620, 440],
+      "size": [165, 64],
+      "tag": "CSV Metrics"
+    },
+    {
+      "id": "genkit-ai",
+      "type": "cloud",
+      "label": "Google Genkit",
+      "sublabel": "Gemini 3.1 Flash Lite",
+      "brand": "google-gemini",
+      "pos": [920, 80],
+      "size": [170, 64],
+      "tag": "AI Recipes"
+    },
+    {
+      "id": "cloud-firestore",
+      "type": "database",
+      "label": "Cloud Firestore",
+      "sublabel": "NoSQL users, pantries, history",
+      "brand": "firebase",
+      "pos": [920, 260],
+      "size": [170, 64],
+      "tag": "Query-Driven"
+    },
+    {
+      "id": "open-food-facts",
+      "type": "external",
+      "label": "Open Food Facts API",
+      "sublabel": "EAN Lookup & CO2 Metadata",
+      "pos": [920, 440],
+      "size": [170, 64],
+      "tag": "Agribalyse"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Client Boundary: Serwist PWA & Browser UI",
+      "wraps": ["scanner", "client-pwa", "service-worker", "app-guard"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Application Boundary: Next.js 16 Runtime",
+      "wraps": ["next-server", "perf-api"]
+    },
+    {
+      "kind": "region",
+      "label": "Cloud Services & External Integrations",
+      "wraps": ["firebase-auth", "cloud-firestore", "genkit-ai", "open-food-facts"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "scan-to-pwa",
+      "from": "scanner",
+      "to": "client-pwa",
+      "label": "scansione EAN",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "sw-to-pwa",
+      "from": "service-worker",
+      "to": "client-pwa",
+      "label": "cache shell",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "pwa-to-guard",
+      "from": "client-pwa",
+      "to": "app-guard",
+      "label": "navigazione",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "guard-to-auth",
+      "from": "app-guard",
+      "to": "firebase-auth",
+      "label": "verifica auth",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "guard-to-server",
+      "from": "app-guard",
+      "to": "next-server",
+      "label": "sessione utente",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "server-to-firestore",
+      "from": "next-server",
+      "to": "cloud-firestore",
+      "label": "CRUD NoSQL",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "server-to-genkit",
+      "from": "next-server",
+      "to": "genkit-ai",
+      "label": "prompt ricette",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "server-to-off",
+      "from": "next-server",
+      "to": "open-food-facts",
+      "label": "fetch CO2 & EAN",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "id": "server-to-perf",
+      "from": "next-server",
+      "to": "perf-api",
+      "label": "salvataggio metriche",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24,
+      "labelDx": -45
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Client PWA & Accessibilità Mobile",
+      "items": [
+        "Serwist 9.5 con strategia offline-first e precaching dell'App Shell",
+        "Scanner da fotocamera ad alte prestazioni configurato a 60 fps",
+        "AppGuard per protezione routing e verifica della dispensa attiva"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Next.js Full-Stack & Intelligenza Artificiale",
+      "items": [
+        "Next.js 16 con React 19 e Server Actions ottimizzate",
+        "Google Genkit con modello gemini-3.1-flash-lite",
+        "Generazione ricette anti-spreco (scadenza < 7gg) e Chatbot Culinario"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Persistenza Dati & Misurazione Impatto",
+      "items": [
+        "Cloud Firestore con schema NoSQL query-driven e sotto-collezione history",
+        "Integrazione Open Food Facts con stima dell'impronta carbonica Agribalyse",
+        "Tracciamento spreco vs salvataggio e log prestazionali per benchmark"
+      ]
+    }
+  ]
+}

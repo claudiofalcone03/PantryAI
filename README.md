@@ -78,6 +78,8 @@ La causa principale risiede nella disattenzione durante l'acquisto e nella diffi
 
 ## 🏛 Architettura del Sistema
 
+> 📊 **Diagramma Interattivo Runtime (Archify)**: È disponibile il [diagramma architetturale interattivo runtime](docs/architecture/tesi-runtime-architecture.html) con viste guidate su PWA Serwist, Server Actions Next.js, Cloud Firestore e flussi Google Genkit.
+
 L'applicazione adotta una reinterpretazione moderna e scalabile del classico pattern **Model-View-Controller (MVC)**, ottimizzata per l'ambiente full-stack offerto da Next.js:
 
 ```mermaid
