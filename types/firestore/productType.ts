@@ -16,6 +16,11 @@ export interface Product {
   productOpenedExpiryAt?: Timestamp | null; //si potrebbe calcolare lato app, ma se voglio filtrare velocemente conviene salcvare questa info
   addToShoppingList: boolean; //lo mantengo per avere un caricamento veloce per la UI nella dispensa
   shelfLifeDays?: number | null; //durata in giorni del prodotto fresco, per calcolare productOpenedExpiryAt
+  isFrozen?: boolean | null; // true se l'alimento è attualmente congelato nel freezer
+  productFrozenAt?: Timestamp | null; // data in cui è stato congelato
+  productFrozenExpiryAt?: Timestamp | null; // data di scadenza calcolata per la conservazione nel freezer
+  originalExpiryDateBeforeFreeze?: Timestamp | null; // data originale salvata prima del congelamento
+  frozenMonthsDuration?: number | null; // durata stimata in mesi di conservazione nel freezer (default 3)
   productCreatedAt: Timestamp;
   productUpdatedAt?: Timestamp;
   productPantryId: Pantry["pantryId"]; //id della dispensa a cui il prodotto appartiene

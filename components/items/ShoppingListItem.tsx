@@ -6,6 +6,7 @@ import type { ShoppingListItem as ShoppingListItemType } from "@/types/firestore
 import type { Product } from "@/types/firestore/productType";
 import { updateShoppingListItemStatus } from "@/lib/firestore/shoppingList";
 import { auth } from "@/lib/firebase";
+import { enqueueOfflineMutation } from "@/lib/offline/indexedDb";
 
 interface ShoppingListItemProps {
   item: ShoppingListItemType;
@@ -29,7 +30,17 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
     setIsUpdating(true);
     try {
       const newStatus = isPurchased ? "toBuy" : "purchased";
-      await updateShoppingListItemStatus(item.listItemId, newStatus, currentMemberName);
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueOfflineMutation({
+          type: "SET_SHOPPING_STATUS",
+          pantryId: item.listItemPantryId || "",
+          docId: item.listItemId,
+          payload: { status: newStatus, userName: currentMemberName },
+          createdAt: Date.now(),
+        });
+      } else {
+        await updateShoppingListItemStatus(item.listItemId, newStatus, currentMemberName);
+      }
       onItemUpdated();
     } catch (error) {
       console.error("Errore aggiornamento stato:", error);
@@ -46,7 +57,17 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
     try {
       // Se era già riservato dall'utente corrente, annulla. Altrimenti riserva.
       const newStatus = isReserved ? "toBuy" : "reserved";
-      await updateShoppingListItemStatus(item.listItemId, newStatus, currentMemberName);
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueOfflineMutation({
+          type: "SET_SHOPPING_STATUS",
+          pantryId: item.listItemPantryId || "",
+          docId: item.listItemId,
+          payload: { status: newStatus, userName: currentMemberName },
+          createdAt: Date.now(),
+        });
+      } else {
+        await updateShoppingListItemStatus(item.listItemId, newStatus, currentMemberName);
+      }
       onItemUpdated();
     } catch (error) {
       console.error("Errore aggiornamento prenotazione:", error);

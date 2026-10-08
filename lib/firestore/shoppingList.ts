@@ -1,5 +1,5 @@
 import { db } from "../firebase";
-import { collection, doc, writeBatch, serverTimestamp, Timestamp, query, where, getDocs, updateDoc } from "firebase/firestore";
+import { collection, doc, addDoc, writeBatch, serverTimestamp, Timestamp, query, where, getDocs, updateDoc } from "firebase/firestore";
 import type { ShoppingListItem } from "../../types/firestore/shoppingListItemType";
 import type { Product } from "../../types/firestore/productType";
 
@@ -109,3 +109,18 @@ export async function updateShoppingListItemStatus(
 
   await updateDoc(itemRef, updateData);
 }
+
+// Aggiunge un elemento arbitrario alla lista della spesa per la dispensa
+export async function addRawItemToShoppingList(
+  pantryId: string,
+  itemName: string
+): Promise<string> {
+  const docRef = await addDoc(collection(db, "shoppingListItems"), {
+    listItemPantryId: pantryId,
+    listItemName: itemName,
+    listItemStatus: "toBuy",
+    listItemCreatedAt: serverTimestamp(),
+  });
+  return docRef.id;
+}
+

@@ -24,7 +24,7 @@ export default function SelectItemForChatbot({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
             <div className="bg-white dark:bg-zinc-900 rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden shadow-xl">
                 <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
                     <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Seleziona gli ingredienti</h2>

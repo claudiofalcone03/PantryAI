@@ -2,10 +2,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Trash2, Save } from "lucide-react";
+import { X, Trash2, Save, Snowflake } from "lucide-react";
 import type { Product } from "@/types/firestore/productType";
-import { updateProduct, deleteProduct } from "@/lib/firestore/products";
+import { updateProduct, deleteProduct, freezeProduct, unfreezeProduct } from "@/lib/firestore/products";
 import { Timestamp } from "firebase/firestore";
+import { FreezeProductPopup } from "./FreezeProductPopup";
 
 interface ProductEditPopupProps {
   isOpen: boolean;
@@ -61,6 +62,10 @@ function ProductEditPopupContent({
   const [isDeleting, setIsDeleting] = useState(false);
   const [openedAt, setOpenedAt] = useState<Timestamp | null>(null);
   const [openedExpiryAt, setOpenedExpiryAt] = useState<Timestamp | null>(null);
+  const [isFrozen, setIsFrozen] = useState(false);
+  const [frozenAt, setFrozenAt] = useState<Timestamp | null>(null);
+  const [frozenExpiryAt, setFrozenExpiryAt] = useState<Timestamp | null>(null);
+  const [showFreezePopup, setShowFreezePopup] = useState(false);
 
   const [initialized] = useState(() => {
     setName(product.productName);
@@ -70,10 +75,39 @@ function ProductEditPopupContent({
     setCarbonFootprint(product.carbonFootprint ?? "");
     setOpenedAt(product.productOpenedAt || null);
     setOpenedExpiryAt(product.productOpenedExpiryAt || null);
+    setIsFrozen(Boolean(product.isFrozen));
+    setFrozenAt(product.productFrozenAt || null);
+    setFrozenExpiryAt(product.productFrozenExpiryAt || null);
     return true;
   });
 
   if (!initialized) return null;
+
+  const handleConfirmFreeze = async (months: number, customDate?: Date) => {
+    if (!product.productId) return;
+    await freezeProduct(product.productId, months, customDate);
+    setIsFrozen(true);
+    const now = new Date();
+    const expiry = customDate || new Date(now.getFullYear(), now.getMonth() + months, now.getDate());
+    setFrozenAt(Timestamp.fromDate(now));
+    setFrozenExpiryAt(Timestamp.fromDate(expiry));
+    onProductUpdated();
+  };
+
+  const handleConfirmUnfreeze = async (mode: "consume_soon" | "restore_original", hours: number) => {
+    if (!product.productId) return;
+    await unfreezeProduct(product.productId, mode, hours);
+    setIsFrozen(false);
+    setFrozenAt(null);
+    setFrozenExpiryAt(null);
+    if (mode === "consume_soon") {
+      const now = new Date();
+      const expiry = new Date(now.getTime() + hours * 60 * 60 * 1000);
+      setOpenedAt(Timestamp.fromDate(now));
+      setOpenedExpiryAt(Timestamp.fromDate(expiry));
+    }
+    onProductUpdated();
+  };
 
   const handleSave = async () => {
     if (!product.productId) return;
@@ -171,7 +205,7 @@ function ProductEditPopupContent({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-0">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-0">
       <div
         className="bg-white dark:bg-zinc-900 w-full sm:max-w-md rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
@@ -261,24 +295,29 @@ function ProductEditPopupContent({
             </div>
           </div>
 
-          {/* Stato Apertura */}
+          {/* Stato Conservazione Freezer */}
           <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4">
-            {openedAt ? (
-              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 rounded-xl">
+            {isFrozen ? (
+              <div className="flex items-center justify-between p-3 bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-100 dark:border-cyan-900/30 rounded-xl">
                 <div className="text-sm">
-                  <p className="font-semibold text-green-800 dark:text-green-400">Prodotto Aperto</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Aperto il:{" "}
-                    {openedAt.toDate().toLocaleDateString("it-IT", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </p>
-                  {openedExpiryAt && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Scadenza calcolata:{" "}
-                      {openedExpiryAt.toDate().toLocaleDateString("it-IT", {
+                  <div className="flex items-center gap-1.5">
+                    <Snowflake className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                    <p className="font-semibold text-cyan-800 dark:text-cyan-300">Nel Freezer</p>
+                  </div>
+                  {frozenAt && (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      Congelato il:{" "}
+                      {frozenAt.toDate().toLocaleDateString("it-IT", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                  )}
+                  {frozenExpiryAt && (
+                    <p className="text-xs text-cyan-700 dark:text-cyan-400 font-medium">
+                      Scadenza freezer:{" "}
+                      {frozenExpiryAt.toDate().toLocaleDateString("it-IT", {
                         day: "2-digit",
                         month: "long",
                         year: "numeric",
@@ -288,36 +327,95 @@ function ProductEditPopupContent({
                 </div>
                 <button
                   type="button"
-                  onClick={handleResetOpened}
+                  onClick={() => setShowFreezePopup(true)}
                   disabled={isSaving}
-                  className="px-3 py-1.5 text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 border border-red-200 dark:border-red-900/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                  className="px-3 py-1.5 text-xs font-semibold text-amber-700 hover:text-amber-800 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40 rounded-lg bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 transition-colors"
                 >
-                  Annulla apertura
+                  Scongela
                 </button>
               </div>
             ) : (
               <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/50 rounded-xl">
                 <div className="flex-1 pr-3">
-                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Non ancora aperto</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {shelfLifeDays
-                      ? `Una volta aperto scadrà dopo ${shelfLifeDays} giorni`
-                      : "Imposta una durata da aperto per tracciare l'apertura"}
+                  <div className="flex items-center gap-1.5">
+                    <Snowflake className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Non congelato</p>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Estendi la conservazione congelando nel freezer
                   </p>
                 </div>
-                {shelfLifeDays && (
-                  <button
-                    type="button"
-                    onClick={handleOpenProduct}
-                    disabled={isSaving || quantity <= 0}
-                    className="px-4 py-2 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm disabled:opacity-50 shrink-0"
-                  >
-                    Apri
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowFreezePopup(true)}
+                  disabled={isSaving || quantity <= 0}
+                  className="px-3 py-1.5 text-xs font-semibold text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 rounded-lg transition-colors shrink-0 disabled:opacity-50"
+                >
+                  Congela
+                </button>
               </div>
             )}
           </div>
+
+          {/* Stato Apertura (solo se non congelato) */}
+          {!isFrozen && (
+            <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4">
+              {openedAt ? (
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 rounded-xl">
+                  <div className="text-sm">
+                    <p className="font-semibold text-green-800 dark:text-green-400">Prodotto Aperto</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Aperto il:{" "}
+                      {openedAt.toDate().toLocaleDateString("it-IT", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                    {openedExpiryAt && (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Scadenza calcolata:{" "}
+                        {openedExpiryAt.toDate().toLocaleDateString("it-IT", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResetOpened}
+                    disabled={isSaving}
+                    className="px-3 py-1.5 text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 border border-red-200 dark:border-red-900/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                  >
+                    Annulla apertura
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/50 rounded-xl">
+                  <div className="flex-1 pr-3">
+                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Non ancora aperto</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {shelfLifeDays
+                        ? `Una volta aperto scadrà dopo ${shelfLifeDays} giorni`
+                        : "Imposta una durata da aperto per tracciare l'apertura"}
+                    </p>
+                  </div>
+                  {shelfLifeDays && (
+                    <button
+                      type="button"
+                      onClick={handleOpenProduct}
+                      disabled={isSaving || quantity <= 0}
+                      className="px-4 py-2 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors shadow-sm disabled:opacity-50 shrink-0"
+                    >
+                      Apri
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -340,6 +438,20 @@ function ProductEditPopupContent({
           </button>
         </div>
       </div>
+
+      {/* Popup Congelamento / Scongelamento */}
+      <FreezeProductPopup
+        isOpen={showFreezePopup}
+        onClose={() => setShowFreezePopup(false)}
+        product={{
+          ...product,
+          isFrozen,
+          productFrozenAt: frozenAt,
+          productFrozenExpiryAt: frozenExpiryAt,
+        }}
+        onConfirmFreeze={handleConfirmFreeze}
+        onConfirmUnfreeze={handleConfirmUnfreeze}
+      />
     </div>
   );
 }

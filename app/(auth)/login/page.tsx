@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { signInWithEmailAndPassword, signInWithPopup, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { useState, useEffect } from "react";
+import { signInWithEmailAndPassword, signInWithPopup, createUserWithEmailAndPassword, sendPasswordResetEmail, onAuthStateChanged } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { LogIn, Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -18,6 +18,16 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);  //quando è in corso l'autenticazione (true) vengono disattivati i pulsanti
+
+  // Se l'utente è già loggato, reindirizza subito all'inventario
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.replace("/inventario");
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   //Casistiche errore firebase auth
   const getFirebaseErrorMessage = (err: unknown): string => {

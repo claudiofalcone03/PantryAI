@@ -7,8 +7,19 @@ interface NetworkInformation {
   downlink?: number;
 }
 
+export const isPerformanceLoggingEnabled = (): boolean => {
+  if (typeof process === 'undefined') return false;
+  const envVal = process.env.NEXT_PUBLIC_ENABLE_PERFORMANCE_LOGS;
+  if (!envVal) return false;
+  const lower = envVal.trim().toLowerCase();
+  return lower === 'true' || lower === '1' || lower === 'on';
+};
+
 export const logClientPerformance = (category: MetricCategory, data: Omit<PerformanceData, 'timestamp'>) => {
-  // Rimosso il blocco production per permettere i test sulle performance
+  // Se disabilitato via variabile d'ambiente, esce immediatamente con zero overhead
+  if (!isPerformanceLoggingEnabled()) {
+    return;
+  }
 
   // Rilevamento delle condizioni di rete del client (supportato su Chrome)
   let networkInfo = '';
@@ -43,6 +54,10 @@ export const withClientPerformanceTracking = async <T>(
   fn: () => Promise<T>,
   getPayloadSize?: (result: T) => number
 ): Promise<T> => {
+  if (!isPerformanceLoggingEnabled()) {
+    return fn();
+  }
+
   const start = performance.now();
   try {
     const result = await fn();

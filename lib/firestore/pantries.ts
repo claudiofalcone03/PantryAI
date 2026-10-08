@@ -301,6 +301,20 @@ function toValidDate(val: unknown): Date | null {
 }
 
 export function getEffectiveExpiryDate(product: Product): Date | null {
+  // Se l'alimento è congelato, la scadenza effettiva è determinata dalla conservazione nel freezer
+  if (product.isFrozen) {
+    const frozenExpiry = toValidDate(product.productFrozenExpiryAt);
+    if (frozenExpiry) return frozenExpiry;
+
+    const frozenAt = toValidDate(product.productFrozenAt);
+    if (frozenAt) {
+      const fallbackMonths = product.frozenMonthsDuration || 3;
+      const d = new Date(frozenAt);
+      d.setMonth(d.getMonth() + fallbackMonths);
+      return d;
+    }
+  }
+
   const openedExpiry = toValidDate(product.productOpenedExpiryAt);
   const productExpiry = toValidDate(product.expiryDateProduct);
 

@@ -3,20 +3,23 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import { getProductsByPantry } from "@/lib/firestore/products";
-import { getShoppingListItemsByPantry, removeProductFromShoppingList } from "@/lib/firestore/shoppingList";
+import { getProductsByPantry, addProduct } from "@/lib/firestore/products";
+import { getShoppingListItemsByPantry, removeProductFromShoppingList, addProductToShoppingList } from "@/lib/firestore/shoppingList";
 import { type Product } from "@/types/firestore/productType";
 import { type ShoppingListItem as ShoppingListItemType } from "@/types/firestore/shoppingListItemType";
 import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
+import type { ParsedVoiceItem } from "@/lib/genkit/genkit";
 import {
   ShoppingListTopBar,
   ProductAddPopup,
   BarcodeScannerPopup,
   ShoppingListItem,
   ShoppingListItemSkeleton,
-  Skeleton
+  Skeleton,
+  VoiceDictationModal,
 } from "@/components";
-import { Search, Loader, CheckCircle } from "lucide-react";
+import { Search, Loader, CheckCircle, Mic } from "lucide-react";
+import { saveCachedProducts, getCachedProducts, saveCachedShoppingItems, getCachedShoppingItems } from "@/lib/offline/indexedDb";
 
 export default function ListaSpesaPage() {
   const [loading, setLoading] = useState(true);
@@ -32,6 +35,7 @@ export default function ListaSpesaPage() {
   const [scannedProductName, setScannedProductName] = useState("");
   const [scannedCarbonFootprint, setScannedCarbonFootprint] = useState<number | null>(null);
   const [pantryCategories, setPantryCategories] = useState<string[]>([]);
+  const [isVoiceDictationOpen, setIsVoiceDictationOpen] = useState(false);
 
   const fetchData = React.useCallback(async () => {
     if (!auth.currentUser) return;
@@ -56,15 +60,29 @@ export default function ListaSpesaPage() {
         setPantryCategories(data.pantryCategories?.length ? data.pantryCategories : DEFAULT_PANTRY_CATEGORIES);
       }
 
-      // Caricamento prodotti e lista spesa in parallelo
-      const [fetchedProducts, fetchedListItems] = await Promise.all([
-        getProductsByPantry(pantryIdToFetch),
-        getShoppingListItemsByPantry(pantryIdToFetch)
-      ]);
+      // Caricamento prodotti e lista spesa in parallelo con supporto offline-first
+      try {
+        const [fetchedProducts, fetchedListItems] = await Promise.all([
+          getProductsByPantry(pantryIdToFetch),
+          getShoppingListItemsByPantry(pantryIdToFetch)
+        ]);
 
-      setProducts(fetchedProducts);
-      setListItems(fetchedListItems);
+        setProducts(fetchedProducts);
+        setListItems(fetchedListItems);
 
+        await Promise.all([
+          saveCachedProducts(pantryIdToFetch, fetchedProducts),
+          saveCachedShoppingItems(pantryIdToFetch, fetchedListItems),
+        ]);
+      } catch (loadErr) {
+        console.warn("[PantryAI] Errore rete caricamento spesa, recupero da cache offline IndexedDB...", loadErr);
+        const [cachedProducts, cachedItems] = await Promise.all([
+          getCachedProducts(pantryIdToFetch),
+          getCachedShoppingItems(pantryIdToFetch),
+        ]);
+        if (cachedProducts && cachedProducts.length > 0) setProducts(cachedProducts);
+        if (cachedItems && cachedItems.length > 0) setListItems(cachedItems);
+      }
     } catch (error) {
       console.error("Errore caricamento lista della spesa:", error);
     } finally {
@@ -83,8 +101,14 @@ export default function ListaSpesaPage() {
 
     init();
 
+    const handleUpdate = () => {
+      fetchData();
+    };
+    window.addEventListener("shopping-list-updated", handleUpdate);
+
     return () => {
       mounted = false;
+      window.removeEventListener("shopping-list-updated", handleUpdate);
     };
   }, [fetchData]);
 
@@ -112,6 +136,42 @@ export default function ListaSpesaPage() {
       setIsCheckingOut(false);
     }
   };
+
+  // Salvataggio elementi da dettatura vocale
+  const handleVoiceItemsParsed = async (items: ParsedVoiceItem[]) => {
+    if (!currentPantryId || items.length === 0) return;
+    setLoading(true);
+    try {
+      const safeItems = items.slice(0, 20);
+      for (const item of safeItems) {
+        const newProductData = {
+          productName: item.name.trim(),
+          productQuantity: 0,
+          productCategory: item.category || "Altro",
+          shelfLifeDays: null,
+          expiryDateProduct: null,
+          productPantryId: currentPantryId,
+          addToShoppingList: false,
+          productOpenedAt: null,
+          productOpenedExpiryAt: null,
+          carbonFootprint: null,
+        };
+        const newProductId = await addProduct(newProductData);
+        const productForList = {
+          ...newProductData,
+          productId: newProductId,
+          productQuantity: item.quantity || 1,
+        } as Product;
+        await addProductToShoppingList(productForList);
+      }
+      await fetchData();
+    } catch (error) {
+      console.error("Errore aggiunta prodotti vocali:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const itemsWithProduct = listItems.map(item => {
     return {
       item,
@@ -201,7 +261,7 @@ export default function ListaSpesaPage() {
           </button>
         )}
 
-        {/* Barra di ricerca */}
+        {/* Barra di ricerca e Dettatura Vocale */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -215,6 +275,15 @@ export default function ListaSpesaPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsVoiceDictationOpen(true)}
+            className="p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:text-emerald-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-sm shrink-0"
+            title="Dettatura vocale lista spesa con AI"
+          >
+            <Mic className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          </button>
         </div>
 
         {/* Filtro Categorie */}
@@ -290,6 +359,23 @@ export default function ListaSpesaPage() {
           setIsScannerOpen(false);
           setAddPopUpOpen(true);
         }}
+      />
+
+      <VoiceDictationModal
+        isOpen={isVoiceDictationOpen}
+        onClose={() => setIsVoiceDictationOpen(false)}
+        title="Dettatura Spesa Intelligente"
+        contextMode="shopping_list"
+        pantryCategories={pantryCategories}
+        existingProducts={products
+          .filter((p) => !!p.productId)
+          .map((p) => ({
+            id: p.productId!,
+            name: p.productName,
+            quantity: p.productQuantity,
+            category: p.productCategory,
+          }))}
+        onItemsParsed={handleVoiceItemsParsed}
       />
     </div>
   );

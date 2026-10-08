@@ -2,59 +2,305 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (matches Firebase Auth uid)
+    // Fields:
+    //   - userId: string (required, immutable)
+    //   - userEmail: string (required)
+    //   - userProfileName: string (optional)
+    //   - userProfilePhotoURL: string (optional)
+    //   - userProfileCreatedAt: timestamp (optional)
+    //   - userProfilePantryIds: list of strings (optional, pantries joined)
+    //   - userProfileCurrentPantryId: string or null (optional, active pantry)
+    //
+    // Collection: pantries
+    // Document ID: pantryId
+    // Fields:
+    //   - pantryId: string (optional, immutable)
+    //   - pantryName: string (required, 1-100 chars)
+    //   - pantryOwnerId: string (required, auth.uid of creator, transferrable by owner)
+    //   - pantryCreatedAt: timestamp (required, immutable)
+    //   - pantryUpdatedAt: timestamp (optional)
+    //   - pantryInviteCode: string (optional, 6 chars)
+    //   - pantryCategories: list of strings (optional)
+    //   - pantryMembers: list of maps [{ memberId, memberRole, memberJoinedAtPantry, memberName }]
+    //
+    // Subcollection: pantries/{pantryId}/history/{logId}
+    // Document ID: logId
+    // Fields:
+    //   - logId: string
+    //   - pantryId: string
+    //   - productId: string
+    //   - productName: string
+    //   - resolvedAt: timestamp
+    //   - resolution: string ('consumed' | 'rescued' | 'wasted')
+    //
+    // Collection: products
+    // Document ID: productId
+    // Fields:
+    //   - productId: string (immutable)
+    //   - productPantryId: string (required, immutable)
+    //   - productName: string (required, 1-200 chars)
+    //   - productQuantity: number
+    //   - productCreatedAt: timestamp (immutable)
+    //   - productUpdatedAt: timestamp (optional)
+    //
+    // Collection: shoppingListItems
+    // Document ID: itemId
+    // Fields:
+    //   - listItemId: string (immutable)
+    //   - listItemPantryId: string (required, immutable)
+    //   - listItemName: string (required, 1-200 chars)
+    //   - listItemStatus: string ('toBuy' | 'reserved' | 'purchased')
+    //   - listItemCreatedAt: timestamp (immutable)
+    //   - listItemUpdatedAt: timestamp (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function isPantryMember(pantryId) {
-      // Controlla se l'id della dispensa è nell'array delle dispense dell'utente
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc != null && pantryId in userDoc.data.userProfilePantryIds;
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isPantryOwner() {
+      return isAuthenticated() && resource.data.pantryOwnerId == request.auth.uid;
+    }
+
+    function isPantryMember(pantryId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        'userProfilePantryIds' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userProfilePantryIds != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userProfilePantryIds is list &&
+        pantryId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.userProfilePantryIds;
+    }
+
+    function isPantryOwnerOf(pantryId) {
+      return exists(/databases/$(database)/documents/pantries/$(pantryId)) &&
+        get(/databases/$(database)/documents/pantries/$(pantryId)).data.pantryOwnerId == request.auth.uid;
+    }
+
+    // Helper for users/{userId} update:
+    // Validates that an authorized pantry owner is removing this user from their pantry.
+    // Prohibits injecting any other pantry, modifying any profile fields, or changing unrelated pantries.
+    function isOwnerRemovingMemberFromUserDoc() {
+      let oldPantries = resource.data.userProfilePantryIds;
+      let newPantries = request.resource.data.userProfilePantryIds;
+      return ('userProfilePantryIds' in resource.data) &&
+        resource.data.userProfilePantryIds is list &&
+        ('userProfilePantryIds' in request.resource.data) &&
+        request.resource.data.userProfilePantryIds is list &&
+        newPantries.size() == oldPantries.size() - 1 &&
+        oldPantries.hasAll(newPantries) &&
+        (
+          !('userProfileCurrentPantryId' in request.resource.data) ||
+          request.resource.data.userProfileCurrentPantryId == null ||
+          request.resource.data.userProfileCurrentPantryId in newPantries ||
+          request.resource.data.userProfileCurrentPantryId == resource.data.userProfileCurrentPantryId
+        ) &&
+        oldPantries.size() > 0 && (
+          (! (oldPantries[0] in newPantries) && isPantryOwnerOf(oldPantries[0])) ||
+          (oldPantries.size() > 1 && ! (oldPantries[1] in newPantries) && isPantryOwnerOf(oldPantries[1])) ||
+          (oldPantries.size() > 2 && ! (oldPantries[2] in newPantries) && isPantryOwnerOf(oldPantries[2])) ||
+          (oldPantries.size() > 3 && ! (oldPantries[3] in newPantries) && isPantryOwnerOf(oldPantries[3])) ||
+          (oldPantries.size() > 4 && ! (oldPantries[4] in newPantries) && isPantryOwnerOf(oldPantries[4])) ||
+          (oldPantries.size() > 5 && ! (oldPantries[5] in newPantries) && isPantryOwnerOf(oldPantries[5])) ||
+          (oldPantries.size() > 6 && ! (oldPantries[6] in newPantries) && isPantryOwnerOf(oldPantries[6])) ||
+          (oldPantries.size() > 7 && ! (oldPantries[7] in newPantries) && isPantryOwnerOf(oldPantries[7])) ||
+          (oldPantries.size() > 8 && ! (oldPantries[8] in newPantries) && isPantryOwnerOf(oldPantries[8])) ||
+          (oldPantries.size() > 9 && ! (oldPantries[9] in newPantries) && isPantryOwnerOf(oldPantries[9]))
+        );
+    }
+
+    // Helper for pantries/{pantryId} update by active members:
+    // Members can update operational fields (name, categories, updatedAt) or remove themselves (leaving)
+    // but CANNOT change pantryOwnerId or pantryInviteCode.
+    function isMemberOperationalUpdate(pantryId) {
+      return isAuthenticated() &&
+        isPantryMember(pantryId) &&
+        request.resource.data.pantryOwnerId == resource.data.pantryOwnerId &&
+        request.resource.data.pantryInviteCode == resource.data.pantryInviteCode &&
+        (!('pantryCreatedAt' in resource.data) || request.resource.data.pantryCreatedAt == resource.data.pantryCreatedAt) &&
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pantryName', 'pantryCategories', 'pantryUpdatedAt']) ||
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pantryMembers', 'pantryUpdatedAt']) &&
+            'pantryMembers' in resource.data &&
+            resource.data.pantryMembers is list &&
+            request.resource.data.pantryMembers is list &&
+            request.resource.data.pantryMembers.size() == resource.data.pantryMembers.size() - 1 &&
+            resource.data.pantryMembers.hasAll(request.resource.data.pantryMembers)
+          )
+        );
+    }
+
+    // Helper for pantries/{pantryId} update by users joining via invite code:
+    // Can ONLY update pantryMembers by appending their own UID as editor.
+    function isJoiningViaCode() {
+      return isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pantryMembers']) &&
+        request.resource.data.pantryOwnerId == resource.data.pantryOwnerId &&
+        request.resource.data.pantryName == resource.data.pantryName &&
+        request.resource.data.pantryInviteCode == resource.data.pantryInviteCode &&
+        (!('pantryCreatedAt' in resource.data) || request.resource.data.pantryCreatedAt == resource.data.pantryCreatedAt) &&
+        'pantryMembers' in resource.data &&
+        resource.data.pantryMembers is list &&
+        request.resource.data.pantryMembers is list &&
+        request.resource.data.pantryMembers.size() == resource.data.pantryMembers.size() + 1 &&
+        request.resource.data.pantryMembers.size() <= 10 &&
+        request.resource.data.pantryMembers.hasAll(resource.data.pantryMembers) &&
+        request.resource.data.pantryMembers[resource.data.pantryMembers.size()].memberId == request.auth.uid &&
+        request.resource.data.pantryMembers[resource.data.pantryMembers.size()].memberRole == 'editor';
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
     match /users/{userId} {
-      // Lettura permessa a tutti per mostrare i nomi dei membri
+      // Read allowed to all authenticated users so members can see member names and emails
       allow read: if isAuthenticated();
       
-      // Creazione e cancellazione permesse solo al proprietario del profilo
-      allow create, delete: if isAuthenticated() && request.auth.uid == userId;
+      // Creation and deletion strictly limited to the account owner
+      allow create, delete: if isOwner(userId);
       
-      // Modifica permessa al proprietario, oppure ad altri utenti ma SOLO sui campi relativi alle dispense 
-      // Serve per permettere all'owner di una dispensa di espellere un membro aggiornando il suo profilo)
+      // Update allowed to the account owner, OR to an authorized pantry owner removing this user
       allow update: if isAuthenticated() && (
-        request.auth.uid == userId ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userProfilePantryIds', 'userProfileCurrentPantryId'])
+        (
+          request.auth.uid == userId &&
+          (!('userId' in request.resource.data) || request.resource.data.userId == userId)
+        ) ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userProfilePantryIds', 'userProfileCurrentPantryId']) &&
+          isOwnerRemovingMemberFromUserDoc()
+        )
       );
+
+      // Personal user recipes
+      match /recipes/{recipeId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+          request.resource.data.recipeAuthorUid == userId &&
+          request.resource.data.recipeTitle is string &&
+          request.resource.data.recipeTitle.size() > 0 &&
+          request.resource.data.recipeTitle.size() <= 200;
+        allow update: if isOwner(userId) &&
+          (!('recipeAuthorUid' in resource.data) || request.resource.data.recipeAuthorUid == resource.data.recipeAuthorUid) &&
+          request.resource.data.recipeTitle is string &&
+          request.resource.data.recipeTitle.size() > 0 &&
+          request.resource.data.recipeTitle.size() <= 200;
+      }
+
+      // Personal user weekly meal plans
+      match /mealPlans/{planId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Personal pantry assistant chat history
+      match /pantryChats/{pantryId}/messages/{messageId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     match /pantries/{pantryId} {
-      // Lettura e creazione dispense consentita a tutti gli utenti loggati
-      //Per cercare la dispensa a cui unirsi
-      allow read, create: if isAuthenticated();
+      // Read allowed to all authenticated users (required for join query by invite code)
+      allow read: if isAuthenticated();
       
-      // Eliminazione consentita solo dall'owner
+      // Pantry creation allowed to authenticated users setting themselves as owner
+      allow create: if isAuthenticated() &&
+        request.resource.data.pantryOwnerId == request.auth.uid &&
+        request.resource.data.pantryName is string &&
+        request.resource.data.pantryName.size() > 0 &&
+        request.resource.data.pantryName.size() <= 100;
+      
+      // Delete strictly restricted to the pantry owner
       allow delete: if isAuthenticated() && resource.data.pantryOwnerId == request.auth.uid;
       
-      // Modifica consentita all'owner, ai membri, o a chiunque si stia unendo tramite codice
-      allow update: if isAuthenticated();
+      // Update restricted to:
+      // 1. The owner (can update operational fields, members, or transfer ownership)
+      // 2. Active members (can update operational fields or leave, but cannot touch ownerId or inviteCode)
+      // 3. New members joining via code (can ONLY append themselves to pantryMembers as editor)
+      allow update: if isPantryOwner() || isMemberOperationalUpdate(pantryId) || isJoiningViaCode();
+
+      // Recipes shared with this pantry
+      match /sharedRecipes/{recipeId} {
+        allow read, delete: if isAuthenticated() && isPantryMember(pantryId);
+        allow create: if isAuthenticated() &&
+          isPantryMember(pantryId) &&
+          request.resource.data.recipeSharedWithPantryId == pantryId &&
+          request.resource.data.recipeTitle is string &&
+          request.resource.data.recipeTitle.size() > 0 &&
+          request.resource.data.recipeTitle.size() <= 200;
+        allow update: if isAuthenticated() &&
+          isPantryMember(pantryId) &&
+          request.resource.data.recipeSharedWithPantryId == resource.data.recipeSharedWithPantryId &&
+          request.resource.data.recipeTitle is string &&
+          request.resource.data.recipeTitle.size() > 0 &&
+          request.resource.data.recipeTitle.size() <= 200;
+      }
     }
 
     match /pantries/{pantryId}/history/{logId} {
-      // Accesso allo storico solo se si appartiene alla dispensa
+      // Access to product history restricted to members of the pantry
       allow read, write: if isAuthenticated() && isPantryMember(pantryId);
     }
 
     match /products/{productId} {
-      // Accesso ai prodotti solo se si è membri della dispensa 
-      allow read, update, delete: if isAuthenticated() && isPantryMember(resource.data.productPantryId);
-      allow create: if isAuthenticated() && isPantryMember(request.resource.data.productPantryId);
+      // Read and delete only for members of the pantry
+      allow read, delete: if isAuthenticated() && isPantryMember(resource.data.productPantryId);
+      
+      // Create only for members of the target pantry
+      allow create: if isAuthenticated() && 
+        isPantryMember(request.resource.data.productPantryId) &&
+        request.resource.data.productName is string &&
+        request.resource.data.productName.size() > 0 &&
+        request.resource.data.productName.size() <= 200 &&
+        request.resource.data.productQuantity is number;
+      
+      // Update only for members of the pantry; productPantryId cannot be transferred
+      allow update: if isAuthenticated() && 
+        isPantryMember(resource.data.productPantryId) &&
+        request.resource.data.productPantryId == resource.data.productPantryId &&
+        (!('productId' in resource.data) || request.resource.data.productId == resource.data.productId) &&
+        (!('productCreatedAt' in resource.data) || request.resource.data.productCreatedAt == resource.data.productCreatedAt) &&
+        request.resource.data.productName is string &&
+        request.resource.data.productName.size() > 0 &&
+        request.resource.data.productName.size() <= 200 &&
+        request.resource.data.productQuantity is number;
     }
 
     match /shoppingListItems/{itemId} {
-      // Accesso alla lista della spesa solo se si è membri della dispensa 
-      allow read, update, delete: if isAuthenticated() && isPantryMember(resource.data.listItemPantryId);
-      allow create: if isAuthenticated() && isPantryMember(request.resource.data.listItemPantryId);
+      // Read and delete only for members of the pantry
+      allow read, delete: if isAuthenticated() && isPantryMember(resource.data.listItemPantryId);
+      
+      // Create only for members of the target pantry
+      allow create: if isAuthenticated() && 
+        isPantryMember(request.resource.data.listItemPantryId) &&
+        request.resource.data.listItemName is string &&
+        request.resource.data.listItemName.size() > 0 &&
+        request.resource.data.listItemName.size() <= 200;
+      
+      // Update only for members of the pantry; listItemPantryId cannot be transferred
+      allow update: if isAuthenticated() && 
+        isPantryMember(resource.data.listItemPantryId) &&
+        request.resource.data.listItemPantryId == resource.data.listItemPantryId &&
+        (!('listItemId' in resource.data) || request.resource.data.listItemId == resource.data.listItemId) &&
+        (!('listItemCreatedAt' in resource.data) || request.resource.data.listItemCreatedAt == resource.data.listItemCreatedAt) &&
+        request.resource.data.listItemName is string &&
+        request.resource.data.listItemName.size() > 0 &&
+        request.resource.data.listItemName.size() <= 200;
     }
 
   }

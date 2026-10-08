@@ -106,3 +106,176 @@ export async function getExpiringProductsByPantry(
     return products;
   }, (res) => res.length);
 }
+
+/**
+ * Congela un alimento: salva la data originale e imposta la nuova data di scadenza nel freezer
+ */
+export async function freezeProduct(
+  productId: string,
+  monthsDuration: number = 3,
+  customExpiryDate?: Date
+): Promise<void> {
+  return withClientPerformanceTracking('db-latency', 'freezeProduct', async () => {
+    const { getDoc } = await import("firebase/firestore");
+    const productRef = doc(db, "products", productId);
+    const snap = await getDoc(productRef);
+    if (!snap.exists()) throw new Error("Prodotto non trovato");
+
+    const currentData = snap.data() as Product;
+    const now = new Date();
+    
+    // Calcola la scadenza nel freezer
+    let frozenExpiry: Date;
+    if (customExpiryDate) {
+      frozenExpiry = customExpiryDate;
+    } else {
+      frozenExpiry = new Date(now);
+      frozenExpiry.setMonth(frozenExpiry.getMonth() + monthsDuration);
+    }
+
+    await updateDoc(productRef, {
+      isFrozen: true,
+      productFrozenAt: Timestamp.fromDate(now),
+      productFrozenExpiryAt: Timestamp.fromDate(frozenExpiry),
+      frozenMonthsDuration: monthsDuration,
+      originalExpiryDateBeforeFreeze: currentData.originalExpiryDateBeforeFreeze || currentData.expiryDateProduct || null,
+      productUpdatedAt: serverTimestamp(),
+    });
+  });
+}
+
+/**
+ * Scongela un alimento con scelta tra consumo immediato (entro ore) o ripristino data originale
+ */
+export async function unfreezeProduct(
+  productId: string,
+  mode: 'consume_soon' | 'restore_original' = 'consume_soon',
+  hoursToConsume: number = 48
+): Promise<void> {
+  return withClientPerformanceTracking('db-latency', 'unfreezeProduct', async () => {
+    const { getDoc } = await import("firebase/firestore");
+    const productRef = doc(db, "products", productId);
+    const snap = await getDoc(productRef);
+    if (!snap.exists()) throw new Error("Prodotto non trovato");
+
+    const currentData = snap.data() as Product;
+    const now = new Date();
+
+    if (mode === 'consume_soon') {
+      const openedExpiry = new Date(now.getTime() + hoursToConsume * 60 * 60 * 1000);
+      await updateDoc(productRef, {
+        isFrozen: false,
+        productOpenedAt: Timestamp.fromDate(now),
+        productOpenedExpiryAt: Timestamp.fromDate(openedExpiry),
+        shelfLifeDays: Math.ceil(hoursToConsume / 24),
+        productFrozenExpiryAt: null,
+        productUpdatedAt: serverTimestamp(),
+      });
+    } else {
+      // Ripristina data originale
+      const originalDate = currentData.originalExpiryDateBeforeFreeze || currentData.expiryDateProduct || null;
+      await updateDoc(productRef, {
+        isFrozen: false,
+        expiryDateProduct: originalDate,
+        productFrozenAt: null,
+        productFrozenExpiryAt: null,
+        originalExpiryDateBeforeFreeze: null,
+        productUpdatedAt: serverTimestamp(),
+      });
+    }
+  });
+}
+
+/**
+ * Segna un alimento come aperto, calcolando la scadenza in base a shelfLifeDays
+ */
+export async function openProduct(
+  productId: string,
+  shelfLifeDaysOverride?: number
+): Promise<void> {
+  return withClientPerformanceTracking('db-latency', 'openProduct', async () => {
+    const { getDoc } = await import("firebase/firestore");
+    const productRef = doc(db, "products", productId);
+    const snap = await getDoc(productRef);
+    if (!snap.exists()) throw new Error("Prodotto non trovato");
+
+    const currentData = snap.data() as Product;
+    const now = new Date();
+    const shelfLife = shelfLifeDaysOverride ?? currentData.shelfLifeDays ?? 3;
+    const openedExpiry = new Date(now.getTime() + shelfLife * 24 * 60 * 60 * 1000);
+
+    await updateDoc(productRef, {
+      isOpened: true,
+      productOpenedAt: Timestamp.fromDate(now),
+      productOpenedExpiryAt: Timestamp.fromDate(openedExpiry),
+      shelfLifeDays: shelfLife,
+      productUpdatedAt: serverTimestamp(),
+    });
+  });
+}
+
+/**
+ * Consuma una quantità di alimento (o lo rimuove se azzerato) e aggiunge il log storico
+ */
+export async function consumeProduct(
+  productId: string,
+  quantityToConsume: number = 1,
+  resolution: 'consumed' | 'wasted' = 'consumed'
+): Promise<void> {
+  return withClientPerformanceTracking('db-latency', 'consumeProduct', async () => {
+    const { getDoc } = await import("firebase/firestore");
+    const productRef = doc(db, "products", productId);
+    const snap = await getDoc(productRef);
+    if (!snap.exists()) throw new Error("Prodotto non trovato");
+
+    const currentData = snap.data() as Product;
+    const currentQty = currentData.productQuantity || 1;
+    const remainingQty = Math.max(0, currentQty - quantityToConsume);
+
+    if (remainingQty <= 0) {
+      await deleteDoc(productRef);
+    } else {
+      await updateDoc(productRef, {
+        productQuantity: remainingQty,
+        productUpdatedAt: serverTimestamp(),
+      });
+    }
+
+    // Se associato a dispensa, aggiunge log allo storico
+    if (currentData.productPantryId) {
+      try {
+        const { addProductHistoryLog } = await import("./productHistory");
+        const { getEffectiveExpiryDate } = await import("./pantries");
+
+        let finalResolution: 'consumed' | 'rescued' | 'wasted' = resolution;
+        if (resolution === 'consumed') {
+          const effectiveExpiryDate = getEffectiveExpiryDate(currentData);
+          if (effectiveExpiryDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const expCopy = new Date(effectiveExpiryDate);
+            expCopy.setHours(0, 0, 0, 0);
+            const diffTime = expCopy.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays <= 3 && diffDays >= 0) {
+              finalResolution = 'rescued';
+            }
+          }
+        }
+
+        await addProductHistoryLog(currentData.productPantryId, {
+          productId: currentData.productId,
+          productName: currentData.productName,
+          productCategory: currentData.productCategory,
+          quantityHistory: Math.min(currentQty, quantityToConsume),
+          resolution: finalResolution,
+          carbonFootprint: currentData.carbonFootprint || null,
+        });
+      } catch (logErr) {
+        console.warn("Avviso registrazione storico consumo:", logErr);
+      }
+    }
+  });
+}
+
+
