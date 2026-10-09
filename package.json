@@ -1,6 +1,6 @@
 {
   "name": "pantry-ai-pwa",
-  "version": "0.1.0",
+  "version": "1.1.0-beta",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack --experimental-https -H 0.0.0.0",

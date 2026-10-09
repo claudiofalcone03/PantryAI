@@ -211,11 +211,11 @@ function ProductAddPopupContent({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div
-        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-md p-6 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col p-6 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header con eventuale badge coda */}
-        <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
           <div>
             <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
               {isShoppingListMode ? "Aggiungi alla Lista" : "Nuovo Prodotto"}
@@ -238,7 +238,7 @@ function ProductAddPopupContent({
         </div>
 
         {/* Campi Form */}
-        <div className="space-y-4 pt-4">
+        <div className="space-y-4 pt-4 overflow-y-auto flex-1 overscroll-contain pr-1">
           {/* Nome */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
@@ -375,7 +375,7 @@ function ProductAddPopupContent({
         </div>
 
         {/* Footer con Azioni */}
-        <div className="flex items-center justify-between gap-3 pt-6 mt-4 border-t border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-3 pt-4 mt-3 border-t border-zinc-100 dark:border-zinc-800 shrink-0">
           {isQueueMode && !isLastQueueItem ? (
             <button
               type="button"

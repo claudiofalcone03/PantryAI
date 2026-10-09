@@ -207,11 +207,11 @@ function ProductEditPopupContent({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-0">
       <div
-        className="bg-white dark:bg-zinc-900 w-full sm:max-w-md rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="bg-white dark:bg-zinc-900 w-full sm:max-w-md max-h-[90vh] flex flex-col rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Modifica Prodotto</h2>
           <button
             onClick={onClose}
@@ -222,7 +222,7 @@ function ProductEditPopupContent({
         </div>
 
         {/* Body */}
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto flex-1 overscroll-contain pr-1">
           <div className="flex gap-4">
             <div className="flex-[2]">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Nome Prodotto</label>
@@ -419,7 +419,7 @@ function ProductEditPopupContent({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex gap-3">
+        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex gap-3 shrink-0">
           <button
             onClick={handleDelete}
             disabled={isDeleting || isSaving}

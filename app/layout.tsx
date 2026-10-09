@@ -6,18 +6,28 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "PantryAI",
   description: "La tua dispensa smart con AI",
+  applicationName: "PantryAI",
   appleWebApp: {
     title: "PantryAI",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     capable: true,
   },
   icons: {
-    apple: "/icon-192x192.png",
+    icon: "/icon-192x192.png",
+    apple: "/apple-touch-icon.png",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 import { WebVitalTracker } from "@/components";

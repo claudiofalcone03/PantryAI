@@ -81,7 +81,7 @@ export function GlobalVoiceFab() {
   return (
     <>
       {/* Floating Action Button (Sempre in primo piano in basso a destra con sole Stelline) */}
-      <aside aria-label="Assistente AI Dispensa" className="fixed bottom-20 right-4 sm:right-6 z-40">
+      <aside aria-label="Assistente AI Dispensa" className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px)+0.75rem)] right-4 sm:right-6 z-40">
         <button
           type="button"
           onClick={handleOpen}

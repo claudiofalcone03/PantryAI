@@ -89,7 +89,7 @@ export function DownNavbar() {
     .filter(Boolean) as AppNavScreen[];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 dark:bg-[#0a0a0a]/85 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 pb-[env(safe-area-inset-bottom)] transition-all">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 dark:bg-[#0a0a0a]/85 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 pb-[env(safe-area-inset-bottom,0px)] transition-all">
       <div className="flex items-center justify-around h-16 px-1 sm:px-2 max-w-lg mx-auto">
         {navItems.map((item) => {
           const isActive =

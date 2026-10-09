@@ -5,6 +5,7 @@ import { signInWithEmailAndPassword, signInWithPopup, createUserWithEmailAndPass
 import { auth, googleProvider } from "@/lib/firebase";
 import { LogIn, Mail, Lock, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { syncUserProfileData } from "@/lib/firestore/userProfile";
 
 const minPasswordLength = 6; //Questo è un controllo solo a livello UI
 
@@ -69,14 +70,16 @@ export default function LoginPage() {
     try {
       if (isLogin) {
         console.log("Invio credenziali di login a Firebase Auth:", { email });
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCred = await signInWithEmailAndPassword(auth, email, password);
         console.log("Login con email avvenuto con successo");
-        router.push("/redirect-login");
+        await syncUserProfileData(userCred.user);
+        router.replace("/inventario");
       } else {
         console.log("Invio credenziali di registrazione a Firebase Auth:", { email });
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
         console.log("Registrazione mediante email avvenuta con successo");
-        router.push("/redirect-login");
+        await syncUserProfileData(userCred.user);
+        router.replace("/inventario");
       }
     } catch (err: unknown) {
       setError(getFirebaseErrorMessage(err));
@@ -111,9 +114,10 @@ export default function LoginPage() {
     setLoading(true);
     console.log("Avvio del login con Google tramite popup pagina esterna");
     try {
-      await signInWithPopup(auth, googleProvider);
+      const userCred = await signInWithPopup(auth, googleProvider);
       console.log("Login con Google è avvenuto con successo");
-      router.push("/redirect-login")
+      await syncUserProfileData(userCred.user);
+      router.replace("/inventario");
     } catch (err: unknown) {
       setError(getFirebaseErrorMessage(err));
     } finally {
@@ -122,7 +126,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4 py-8 pt-[calc(2rem+env(safe-area-inset-top,0px))] pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
       <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 sm:p-10 shadow-sm transition-all hover:shadow-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 mb-4 text-green-600 dark:text-green-500">

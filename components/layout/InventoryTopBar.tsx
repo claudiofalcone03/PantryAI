@@ -10,7 +10,7 @@ interface InventoryTopBar {
 
 export function InventoryTopBar({ pantryName, onAddProduct, onScanClick }: InventoryTopBar) {
   return (
-    <div className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10">
+    <div className="flex items-center justify-between px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top,0px))] bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-10">
       <div className="flex-1 min-w-0">
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 truncate">
           {pantryName || "Caricamento..."}

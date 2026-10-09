@@ -73,9 +73,9 @@ export function FreezeProductPopup({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-zinc-900 w-full max-w-md rounded-3xl border border-gray-200 dark:border-zinc-800 shadow-2xl overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 w-full max-w-md max-h-[90vh] flex flex-col rounded-3xl border border-gray-200 dark:border-zinc-800 shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between">
+        <div className="p-5 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
               isAlreadyFrozen
@@ -103,7 +103,7 @@ export function FreezeProductPopup({
         </div>
 
         {/* Body */}
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1 overscroll-contain pr-1">
           {!isAlreadyFrozen ? (
             /* MODALITÀ: CONGELA */
             <>
@@ -248,7 +248,7 @@ export function FreezeProductPopup({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-gray-50 dark:bg-zinc-800/50 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-end gap-2.5">
+        <div className="p-4 bg-gray-50 dark:bg-zinc-800/50 border-t border-gray-100 dark:border-zinc-800 flex items-center justify-end gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onClose}

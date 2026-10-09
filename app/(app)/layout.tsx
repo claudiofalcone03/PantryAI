@@ -8,7 +8,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 	return (
 		<AppGuard>
 			<LiveChefProvider>
-				<div className="min-h-screen pb-20">
+				<div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]">
 					<OfflineBanner />
 					{children}
 					<GlobalVoiceFab />
