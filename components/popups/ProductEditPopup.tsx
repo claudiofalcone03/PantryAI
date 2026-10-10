@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
@@ -7,6 +6,7 @@ import type { Product } from "@/types/firestore/productType";
 import { updateProduct, deleteProduct, freezeProduct, unfreezeProduct } from "@/lib/firestore/products";
 import { Timestamp } from "firebase/firestore";
 import { FreezeProductPopup } from "./FreezeProductPopup";
+import { getFoodIcon, POPULAR_FOOD_EMOJIS } from "@/lib/utils/foodIcons";
 
 interface ProductEditPopupProps {
   isOpen: boolean;
@@ -53,6 +53,8 @@ function ProductEditPopupContent({
   })();
 
   const [name, setName] = useState("");
+  const [icon, setIcon] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [quantity, setQuantity] = useState(0);
   const [expiryDate, setExpiryDate] = useState(initialExpiryDate);
   const [category, setCategory] = useState("");
@@ -69,6 +71,7 @@ function ProductEditPopupContent({
 
   const [initialized] = useState(() => {
     setName(product.productName);
+    setIcon(product.productIcon || "");
     setQuantity(product.productQuantity);
     setCategory(product.productCategory || "");
     setShelfLifeDays(product.shelfLifeDays ?? "");
@@ -120,6 +123,7 @@ function ProductEditPopupContent({
 
       await updateProduct(product.productId, {
         productName: name,
+        productIcon: icon ? icon.trim() : null,
         productQuantity: quantity,
         productCategory: category || "",
         shelfLifeDays: shelfLifeDays === "" ? null : Number(shelfLifeDays),
@@ -225,13 +229,54 @@ function ProductEditPopupContent({
         <div className="p-4 space-y-4">
           <div className="flex gap-4">
             <div className="flex-[2]">
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Nome Prodotto</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Nome & Icona</label>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-xl shrink-0 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shadow-xs"
+                    title="Seleziona icona/emoji per questo alimento"
+                  >
+                    {icon || getFoodIcon(name, category)}
+                  </button>
+
+                  {showEmojiPicker && (
+                    <div className="absolute top-12 left-0 z-50 p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl w-64 max-h-48 overflow-y-auto grid grid-cols-6 gap-1">
+                      {POPULAR_FOOD_EMOJIS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => {
+                            setIcon(emoji);
+                            setShowEmojiPicker(false);
+                          }}
+                          className="w-9 h-9 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-lg transition-transform active:scale-90"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIcon("");
+                          setShowEmojiPicker(false);
+                        }}
+                        className="col-span-6 mt-1 py-1 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 text-center border-t border-zinc-100 dark:border-zinc-800"
+                      >
+                        Ripristina automatica
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-zinc-900 dark:text-zinc-100"
+                />
+              </div>
             </div>
             <div className="flex-1">
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Categoria</label>

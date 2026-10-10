@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
   turbopack: {},
   allowedDevOrigins: ["192.168.1.182", "10.31.12.14", "172.20.10.2", "dark-banks-like.loca.lt"], //Per test su wifi di casa e eduroam (30-06-26) non vale per google auth
 
+  serverExternalPackages: [
+    "genkit",
+    "@genkit-ai/core",
+    "@genkit-ai/google-genai",
+    "@genkit-ai/ai",
+  ],
+
   images: {
     remotePatterns: [
       {
@@ -20,6 +27,21 @@ const nextConfig: NextConfig = {
         hostname: "lh3.googleusercontent.com",
       },
     ],
+  },
+
+  async redirects() {
+    return [
+      {
+        source: "/genkit",
+        destination: "/profilo/sviluppo/genkit",
+        permanent: false,
+      },
+      {
+        source: "/architettura",
+        destination: "/profilo/sviluppo/genkit",
+        permanent: false,
+      },
+    ];
   },
 };
 

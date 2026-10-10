@@ -7,7 +7,10 @@
     "build": "next build --webpack",
     "start": "next start -H 0.0.0.0",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "genkit": "node scripts/start-genkit.mjs",
+    "genkit:ui": "node scripts/start-genkit-ui.mjs",
+    "genkit:test": "tsx scripts/test-genkit-flows.mjs"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.39.0",

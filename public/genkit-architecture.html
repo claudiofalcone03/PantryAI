@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PantryAI • Architettura Flussi Genkit & Tracciabilità AI</title>
+  <style>
+    :root {
+      --bg: #09090b;
+      --card-bg: #18181b;
+      --card-border: #27272a;
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.2);
+      --purple: #a855f7;
+      --blue: #3b82f6;
+      --amber: #f59e0b;
+      --cyan: #06b6d4;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent: #059669;
+      --accent-glow: rgba(5, 150, 105, 0.15);
+      --purple: #9333ea;
+      --blue: #2563eb;
+      --amber: #d97706;
+      --cyan: #0891b2;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    header {
+      background: rgba(24, 24, 27, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    [data-theme="light"] header {
+      background: rgba(255, 255, 255, 0.85);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-badge {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 0.65rem;
+      background: linear-gradient(135deg, #10b981, #059669);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.15s ease;
+      text-decoration: none;
+      border: 1px solid transparent;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--card-bg);
+      border-color: var(--card-border);
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .hero-banner {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      border-radius: 1.25rem;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      width: fit-content;
+      font-family: monospace;
+    }
+
+    .hero-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-desc {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      max-width: 900px;
+    }
+
+    /* Diagram Canvas */
+    .diagram-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      overflow-x: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .diagram-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .diagram-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+    }
+
+    svg.diagram {
+      width: 100%;
+      min-width: 1000px;
+      height: 520px;
+      display: block;
+    }
+
+    /* SVG Interactive Styles */
+    .node-box {
+      cursor: pointer;
+      transition: transform 0.2s, filter 0.2s;
+    }
+
+    .node-box:hover {
+      filter: brightness(1.2);
+    }
+
+    .tier-rect {
+      fill: rgba(255, 255, 255, 0.02);
+      stroke: var(--card-border);
+      stroke-width: 1.5;
+      stroke-dasharray: 4 4;
+      rx: 16;
+    }
+
+    [data-theme="light"] .tier-rect {
+      fill: rgba(0, 0, 0, 0.015);
+    }
+
+    .tier-header-text {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      fill: var(--text-muted);
+    }
+
+    .node-rect {
+      rx: 12;
+      stroke-width: 1.5;
+    }
+
+    .flow-line {
+      stroke-width: 1.8;
+      stroke-dasharray: 6 3;
+      animation: dash-flow 25s linear infinite;
+    }
+
+    @keyframes dash-flow {
+      to {
+        stroke-dashoffset: -300;
+      }
+    }
+
+    /* Flows Grid & Drawer */
+    .flows-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .flow-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .flow-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .flow-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .flow-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .flow-tag {
+      font-size: 0.65rem;
+      font-family: monospace;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+    }
+
+    .flow-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .flow-specs {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--card-border);
+      border-radius: 0.5rem;
+      padding: 0.65rem;
+      font-family: monospace;
+      font-size: 0.7rem;
+      color: #94a3b8;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    [data-theme="light"] .flow-specs {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .flow-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-weight: 600;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--card-border);
+    }
+
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 1.5rem 2rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <header>
+    <div class="brand">
+      <div class="brand-badge">P</div>
+      <div>
+        <div class="brand-title">PantryAI • Genkit Flows Studio</div>
+        <div class="brand-sub">Architettura & Tracciabilità OpenTelemetry</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" onclick="toggleTheme()" id="theme-btn">
+        🌓 Tema
+      </button>
+      <a class="btn btn-primary" href="http://localhost:4000" target="_blank">
+        🚀 Apri Genkit Dev UI (:4000)
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero-banner">
+      <div class="badge-pill">
+        <span>●</span> Genkit SDK 1.39.0 • 8 Flussi Attivi • gemini-3.1-flash-lite
+      </div>
+      <h1 class="hero-title">Architettura Completa dei Flussi AI (Mobile & Desktop)</h1>
+      <p class="hero-desc">
+        Ogni singola operazione AI dell&apos;applicazione PantryAI (riconoscimento visivo multi-item, OCR scadenze, dettatura vocale, chatbot dello chef, copilot con azioni operative e pianificazione pasti settimanale) è integrata ed eseguita formalmente attraverso <strong>Flussi Genkit tracciabili</strong> con telemetria e spans.
+      </p>
+    </section>
+
+    <!-- Diagramma SVG Interattivo -->
+    <section class="diagram-panel">
+      <div class="diagram-title-row">
+        <h2 class="diagram-title">Mappa Topologica dei Flussi End-to-End</h2>
+        <span style="font-size: 0.75rem; color: var(--accent); font-family: monospace;">
+          Live Instrumentation: ON
+        </span>
+      </div>
+
+      <svg class="diagram" viewBox="0 0 1100 520">
+        <defs>
+          <linearGradient id="grad-client" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.1"/>
+          </linearGradient>
+          <linearGradient id="grad-genkit" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#10b981" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#047857" stop-opacity="0.1"/>
+          </linearGradient>
+          <linearGradient id="grad-model" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#6d28d9" stop-opacity="0.1"/>
+          </linearGradient>
+
+          <!-- Marker Frecce -->
+          <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 8 5 L 0 9 z" fill="#10b981"/>
+          </marker>
+          <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1 L 8 5 L 0 9 z" fill="#3b82f6"/>
+          </marker>
+        </defs>
+
+        <!-- TIER 1: CLIENT SURFACES -->
+        <rect class="tier-rect" x="30" y="30" width="280" height="460" />
+        <text class="tier-header-text" x="50" y="60">Tier 1 • Client Surfaces</text>
+
+        <!-- Node: Mobile Client -->
+        <g class="node-box" transform="translate(50, 80)">
+          <rect class="node-rect" width="240" height="95" fill="url(#grad-client)" stroke="#3b82f6" />
+          <text x="18" y="28" font-size="13" font-weight="700" fill="var(--text)">📱 Mobile Client (PWA)</text>
+          <text x="18" y="48" font-size="11" fill="var(--text-muted)">• Floating Voice FAB & Dettatura</text>
+          <text x="18" y="66" font-size="11" fill="var(--text-muted)">• Barcode & Fotocamera Smart Vision</text>
+          <text x="18" y="84" font-size="11" fill="var(--text-muted)">• Copilot Bottom Sheet & Pasti</text>
+        </g>
+
+        <!-- Node: Desktop Client -->
+        <g class="node-box" transform="translate(50, 200)">
+          <rect class="node-rect" width="240" height="95" fill="url(#grad-client)" stroke="#60a5fa" />
+          <text x="18" y="28" font-size="13" font-weight="700" fill="var(--text)">🖥️ Desktop Client (Widescreen)</text>
+          <text x="18" y="48" font-size="11" fill="var(--text-muted)">• Copilot Docked Aside Split View</text>
+          <text x="18" y="66" font-size="11" fill="var(--text-muted)">• Scanner Web + File Image Upload</text>
+          <text x="18" y="84" font-size="11" fill="var(--text-muted)">• Studio Pasti Settimanali Esteso</text>
+        </g>
+
+        <!-- Node: MCP Client -->
+        <g class="node-box" transform="translate(50, 320)">
+          <rect class="node-rect" width="240" height="75" fill="url(#grad-client)" stroke="#93c5fd" />
+          <text x="18" y="28" font-size="13" font-weight="700" fill="var(--text)">🤖 Antigravity / MCP Client</text>
+          <text x="18" y="48" font-size="11" fill="var(--text-muted)">• Token-gated JSON-RPC 2.0</text>
+          <text x="18" y="64" font-size="11" fill="var(--text-muted)">• Ricette da scadenze & Assistente</text>
+        </g>
+
+        <!-- TIER 2: GENKIT FLOW ENGINE -->
+        <rect class="tier-rect" x="380" y="30" width="340" height="460" />
+        <text class="tier-header-text" x="400" y="60">Tier 2 • Genkit 1.39 Flow Engine</text>
+
+        <!-- Flow Nodes -->
+        <g class="node-box" transform="translate(400, 75)">
+          <rect class="node-rect" width="300" height="42" fill="url(#grad-genkit)" stroke="#10b981" />
+          <text x="14" y="26" font-size="11" font-weight="700" font-family="monospace" fill="var(--text)">analyzeImageProductsFlow</text>
+        </g>
+
+        <g class="node-box" transform="translate(400, 125)">
+          <rect class="node-rect" width="300" height="42" fill="url(#grad-genkit)" stroke="#10b981" />
+          <text x="14" y="26" font-size="11" font-weight="700" font-family="monospace" fill="var(--text)">voiceDictationParserFlow</text>
+        </g>
+
+        <g class="node-box" transform="translate(400, 175)">
+          <rect class="node-rect" width="300" height="42" fill="url(#grad-genkit)" stroke="#10b981" />
+          <text x="14" y="26" font-size="11" font-weight="700" font-family="monospace" fill="var(--text)">pantryCopilotFlow (Actionable)</text>
+        </g>
+
+        <g class="node-box" transform="translate(400, 225)">
+          <rect class="node-rect" width="300" height="42" fill="url(#grad-genkit)" stroke="#10b981" />
+          <text x="14" y="26" font-size="11" font-weight="700" font-family="monospace" fill="var(--text)">recipeChatbotFlow</text>
+        </g>
+
+        <g class="node-box" transform="translate(400, 275)">
+          <rect class="node-rect" width="300" height="42" fill="url(#grad-genkit)" stroke="#10b981" />
+          <text x="14" y="26" font-size="11" font-weight="700" font-family="monospace" fill="var(--text)">recipeExpirationFlow</text>
+        </g>
+
+        <g class="node-box" transform="translate(400, 325)">
+          <rect class="node-rect" width="300" height="42" fill="url(#grad-genkit)" stroke="#10b981" />
+          <text x="14" y="26" font-size="11" font-weight="700" font-family="monospace" fill="var(--text)">recipeFromIngredientsFlow</text>
+        </g>
+
+        <g class="node-box" transform="translate(400, 375)">
+          <rect class="node-rect" width="300" height="42" fill="url(#grad-genkit)" stroke="#10b981" />
+          <text x="14" y="26" font-size="11" font-weight="700" font-family="monospace" fill="var(--text)">antiWasteWeeklyPlanFlow</text>
+        </g>
+
+        <g class="node-box" transform="translate(400, 425)">
+          <rect class="node-rect" width="300" height="42" fill="url(#grad-genkit)" stroke="#10b981" />
+          <text x="14" y="26" font-size="11" font-weight="700" font-family="monospace" fill="var(--text)">singleMealSuggestionFlow</text>
+        </g>
+
+        <!-- TIER 3: MODELS & BACKENDS -->
+        <rect class="tier-rect" x="790" y="30" width="280" height="460" />
+        <text class="tier-header-text" x="810" y="60">Tier 3 • Models & Services</text>
+
+        <!-- Node: Gemini Flash Lite -->
+        <g class="node-box" transform="translate(810, 80)">
+          <rect class="node-rect" width="240" height="110" fill="url(#grad-model)" stroke="#a855f7" />
+          <text x="16" y="28" font-size="13" font-weight="700" fill="var(--text)">⚡ Google Gemini</text>
+          <text x="16" y="46" font-size="11" font-weight="600" fill="#c084fc">gemini-3.1-flash-lite</text>
+          <text x="16" y="66" font-size="10" fill="var(--text-muted)">• Multimodal Vision (Fino a 8 alimenti)</text>
+          <text x="16" y="82" font-size="10" fill="var(--text-muted)">• Audio WebM/MP4 Transcription</text>
+          <text x="16" y="98" font-size="10" fill="var(--text-muted)">• JSON Structured Reasoning</text>
+        </g>
+
+        <!-- Node: Gemini Live WebSocket -->
+        <g class="node-box" transform="translate(810, 210)">
+          <rect class="node-rect" width="240" height="85" fill="url(#grad-model)" stroke="#c084fc" />
+          <text x="16" y="28" font-size="13" font-weight="700" fill="var(--text)">🎙️ Gemini Live WebSocket</text>
+          <text x="16" y="46" font-size="11" font-weight="600" fill="#e9d5ff">gemini-3.8-live</text>
+          <text x="16" y="66" font-size="10" fill="var(--text-muted)">• Audio Bidirezionale real-time</text>
+        </g>
+
+        <!-- Node: Cloud Firestore & OffDB -->
+        <g class="node-box" transform="translate(810, 315)">
+          <rect class="node-rect" width="240" height="95" fill="url(#grad-model)" stroke="#e879f9" />
+          <text x="16" y="28" font-size="13" font-weight="700" fill="var(--text)">🔥 Cloud Firestore & DB</text>
+          <text x="16" y="48" font-size="10" fill="var(--text-muted)">• Pantries, Products, MealPlans</text>
+          <text x="16" y="64" font-size="10" fill="var(--text-muted)">• Open Food Facts Barcode API</text>
+          <text x="16" y="80" font-size="10" fill="var(--text-muted)">• IndexedDB Offline Persistence</text>
+        </g>
+
+        <!-- Connection Lines -->
+        <!-- Tier 1 to Tier 2 -->
+        <line x1="290" y1="130" x2="400" y2="100" stroke="#3b82f6" class="flow-line" marker-end="url(#arrow-blue)" />
+        <line x1="290" y1="140" x2="400" y2="145" stroke="#3b82f6" class="flow-line" marker-end="url(#arrow-blue)" />
+        <line x1="290" y1="240" x2="400" y2="195" stroke="#3b82f6" class="flow-line" marker-end="url(#arrow-blue)" />
+        <line x1="290" y1="250" x2="400" y2="395" stroke="#3b82f6" class="flow-line" marker-end="url(#arrow-blue)" />
+        <line x1="290" y1="360" x2="400" y2="295" stroke="#3b82f6" class="flow-line" marker-end="url(#arrow-blue)" />
+
+        <!-- Tier 2 to Tier 3 -->
+        <line x1="700" y1="95" x2="810" y2="115" stroke="#10b981" class="flow-line" marker-end="url(#arrow-green)" />
+        <line x1="700" y1="145" x2="810" y2="135" stroke="#10b981" class="flow-line" marker-end="url(#arrow-green)" />
+        <line x1="700" y1="195" x2="810" y2="155" stroke="#10b981" class="flow-line" marker-end="url(#arrow-green)" />
+        <line x1="700" y1="245" x2="810" y2="175" stroke="#10b981" class="flow-line" marker-end="url(#arrow-green)" />
+        <line x1="700" y1="295" x2="810" y2="185" stroke="#10b981" class="flow-line" marker-end="url(#arrow-green)" />
+        <line x1="700" y1="395" x2="810" y2="350" stroke="#10b981" class="flow-line" marker-end="url(#arrow-green)" />
+      </svg>
+    </section>
+
+    <!-- Specifiche Flussi Genkit Registrati -->
+    <section>
+      <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 1.25rem;">Catalogo Flussi & Schemi Zod</h2>
+      <div class="flows-grid">
+        <!-- 1 -->
+        <div class="flow-card">
+          <div class="flow-card-head">
+            <span class="flow-name">analyzeImageProductsFlow</span>
+            <span class="flow-tag">VISION</span>
+          </div>
+          <p class="flow-desc">Riconoscimento contemporaneo di fino a 8 alimenti, estrazione data di scadenza OCR e stima shelf-life.</p>
+          <div class="flow-specs">
+            <div><strong>Input:</strong> { base64Image, pantryCategories? }</div>
+            <div><strong>Output:</strong> { products: DetectedProductItem[], success }</div>
+          </div>
+          <div class="flow-meta">
+            <span>gemini-3.1-flash-lite</span>
+            <span>Mobile & Desktop</span>
+          </div>
+        </div>
+
+        <!-- 2 -->
+        <div class="flow-card">
+          <div class="flow-card-head">
+            <span class="flow-name">voiceDictationParserFlow</span>
+            <span class="flow-tag">VOICE NLP</span>
+          </div>
+          <p class="flow-desc">Trascrizione audio e classificazione dell&apos;azione (apri, congela, consuma, compra, aggiorna scorte).</p>
+          <div class="flow-specs">
+            <div><strong>Input:</strong> { audioBase64, mimeType, contextMode, ... }</div>
+            <div><strong>Output:</strong> { rawTranscript, items: ParsedVoiceItem[], success }</div>
+          </div>
+          <div class="flow-meta">
+            <span>gemini-3.1-flash-lite</span>
+            <span>Mobile & Desktop</span>
+          </div>
+        </div>
+
+        <!-- 3 -->
+        <div class="flow-card">
+          <div class="flow-card-head">
+            <span class="flow-name">pantryCopilotFlow</span>
+            <span class="flow-tag">COPILOT CHAT</span>
+          </div>
+          <p class="flow-desc">Assistente globale della dispensa con formulazione di azioni operative approvabili in un tap.</p>
+          <div class="flow-specs">
+            <div><strong>Input:</strong> { message, history?, context: { products, ... } }</div>
+            <div><strong>Output:</strong> { reply, proposedActions: ProposedAction[], success }</div>
+          </div>
+          <div class="flow-meta">
+            <span>gemini-3.1-flash-lite</span>
+            <span>Mobile & Desktop</span>
+          </div>
+        </div>
+
+        <!-- 4 -->
+        <div class="flow-card">
+          <div class="flow-card-head">
+            <span class="flow-name">recipeChatbotFlow</span>
+            <span class="flow-tag">CHEF CHAT</span>
+          </div>
+          <p class="flow-desc">Chef culinario per domande, abbinamenti e consigli di cucina tenendo conto delle scorte reali.</p>
+          <div class="flow-specs">
+            <div><strong>Input:</strong> { promptChatbot, history?, prodotti? }</div>
+            <div><strong>Output:</strong> string (Markdown)</div>
+          </div>
+          <div class="flow-meta">
+            <span>gemini-3.1-flash-lite</span>
+            <span>Mobile & Desktop</span>
+          </div>
+        </div>
+
+        <!-- 5 -->
+        <div class="flow-card">
+          <div class="flow-card-head">
+            <span class="flow-name">recipeExpirationFlow</span>
+            <span class="flow-tag">ANTI-SPRECO</span>
+          </div>
+          <p class="flow-desc">Generazione ricette ad-hoc per valorizzare e consumare i prodotti prossimi alla scadenza.</p>
+          <div class="flow-specs">
+            <div><strong>Input:</strong> { nome, quantita }[]</div>
+            <div><strong>Output:</strong> string (Markdown)</div>
+          </div>
+          <div class="flow-meta">
+            <span>gemini-3.1-flash-lite</span>
+            <span>Mobile & Desktop</span>
+          </div>
+        </div>
+
+        <!-- 6 -->
+        <div class="flow-card">
+          <div class="flow-card-head">
+            <span class="flow-name">recipeFromIngredientsFlow</span>
+            <span class="flow-tag">RICETTE</span>
+          </div>
+          <p class="flow-desc">Crea un piatto basandosi esclusivamente sugli ingredienti selezionati dall&apos;utente.</p>
+          <div class="flow-specs">
+            <div><strong>Input:</strong> { nome, quantita }[]</div>
+            <div><strong>Output:</strong> string (Markdown)</div>
+          </div>
+          <div class="flow-meta">
+            <span>gemini-3.1-flash-lite</span>
+            <span>Mobile & Desktop</span>
+          </div>
+        </div>
+
+        <!-- 7 -->
+        <div class="flow-card">
+          <div class="flow-card-head">
+            <span class="flow-name">antiWasteWeeklyPlanFlow</span>
+            <span class="flow-tag">MEAL PLAN</span>
+          </div>
+          <p class="flow-desc">Pianifica 7 giorni x 4 pasti dando priorità anti-spreco ai cibi in scadenza da Lunedì a Mercoledì.</p>
+          <div class="flow-specs">
+            <div><strong>Input:</strong> { days, expiringProducts, availableProducts }</div>
+            <div><strong>Output:</strong> AIMealPlanResponse</div>
+          </div>
+          <div class="flow-meta">
+            <span>gemini-3.1-flash-lite</span>
+            <span>Mobile & Desktop</span>
+          </div>
+        </div>
+
+        <!-- 8 -->
+        <div class="flow-card">
+          <div class="flow-card-head">
+            <span class="flow-name">singleMealSuggestionFlow</span>
+            <span class="flow-tag">MEAL SLOT</span>
+          </div>
+          <p class="flow-desc">Suggerimento mirato per un singolo slot pasto (colazione, pranzo, merenda o cena).</p>
+          <div class="flow-specs">
+            <div><strong>Input:</strong> { slotType, dayName, expiringProducts, ... }</div>
+            <div><strong>Output:</strong> { recipeTitle, notes, ingredients }</div>
+          </div>
+          <div class="flow-meta">
+            <span>gemini-3.1-flash-lite</span>
+            <span>Mobile & Desktop</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    PantryAI • Google Genkit 1.39.0 • Tracciabilità OpenTelemetry per funzionalità AI Mobile & Desktop
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const current = document.body.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.body.setAttribute('data-theme', next);
+    }
+  </script>
+</body>
+</html>

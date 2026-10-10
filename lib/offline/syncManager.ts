@@ -124,10 +124,17 @@ async function executeSingleMutation(mutation: OfflineMutation): Promise<void> {
     case "UPDATE_PRODUCT_QTY": {
       if (!docId) return;
       const ref = doc(db, "products", docId);
-      await updateDoc(ref, {
-        productQuantity: payload.quantity,
+      const updateData: any = {
+        productQuantity: Math.max(0, payload.quantity),
         productUpdatedAt: serverTimestamp(),
-      });
+      };
+      if (payload.quantity <= 0) {
+        updateData.expiryDateProduct = null;
+        updateData.productOpenedExpiryAt = null;
+        updateData.productFrozenExpiryAt = null;
+        updateData.originalExpiryDateBeforeFreeze = null;
+      }
+      await updateDoc(ref, updateData);
       break;
     }
 

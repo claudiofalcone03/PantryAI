@@ -6,11 +6,15 @@ export { RemoveQuantityPopup } from "./popups/RemoveQuantityPopup";
 export { ManageCategoriesPopup } from "./popups/ManageCategoriesPopup";
 export { VisionReviewSheetPopup } from "./popups/VisionReviewSheetPopup";
 export { FreezeProductPopup } from "./popups/FreezeProductPopup";
+export { SortFilterPopup } from "./popups/SortFilterPopup";
+export { AddToShoppingListDesktopModal } from "./popups/AddToShoppingListDesktopModal";
 
 // Layout & Navigation
 export { DownNavbar } from "./layout/DownNavbar";
+export { DesktopSidebar } from "./layout/DesktopSidebar";
 export { InventoryTopBar } from "./layout/InventoryTopBar";
 export { ShoppingListTopBar } from "./layout/ShoppingListTopBar";
+export { MobileProfileButton } from "./layout/MobileProfileButton";
 export { NavCustomizationPopup } from "./navigation/NavCustomizationPopup";
 
 // Items & Products
@@ -29,6 +33,7 @@ export { WebVitalTracker } from "./monitoring/WebVitalTracker";
 
 // UI & Skeletons
 export { Skeleton } from "./ui/Skeleton";
+export { MarkdownRenderer } from "./ui/MarkdownRenderer";
 export { CardSkeleton } from "./skeletons/CardSkeleton";
 export { PantryCardSkeleton } from "./skeletons/PantryCardSkeleton";
 export { ProductListItemSkeleton } from "./skeletons/ProductListItemSkeleton";

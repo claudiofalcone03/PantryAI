@@ -114,7 +114,7 @@ export interface AppNavScreen {
 export const ALL_APP_SCREENS: AppNavScreen[] = [
   {
     id: "inventario",
-    name: "Inventario",
+    name: "Dispensa",
     href: "/inventario",
     description: "Dispensa, scadenze e prodotti nel freezer",
     iconName: "Refrigerator",
@@ -127,18 +127,18 @@ export const ALL_APP_SCREENS: AppNavScreen[] = [
     iconName: "ShoppingCart",
   },
   {
+    id: "piano-settimanale",
+    name: "Pasti",
+    href: "/piano-settimanale",
+    description: "Pianificazione pasti settimanale (Colazione, Pranzo, Merenda, Cena)",
+    iconName: "CalendarDays",
+  },
+  {
     id: "ricettario",
     name: "Ricettario",
     href: "/ricettario",
     description: "Ricette salvate, idee anti-spreco e Chef AI",
     iconName: "ChefHat",
-  },
-  {
-    id: "piano-settimanale",
-    name: "Piano Pasti",
-    href: "/piano-settimanale",
-    description: "Pianificazione pasti settimanale (Colazione, Pranzo, Merenda, Cena)",
-    iconName: "CalendarDays",
   },
   {
     id: "spreco",
@@ -147,19 +147,13 @@ export const ALL_APP_SCREENS: AppNavScreen[] = [
     description: "Metriche, statistiche e storico degli sprechi",
     iconName: "Trash2",
   },
-  {
-    id: "profilo",
-    name: "Profilo",
-    href: "/profilo",
-    description: "Gestione account, dispense, notifiche e strumenti tecnici",
-    iconName: "Settings",
-  },
 ];
 
-export const DEFAULT_NAV_TABS: string[] = ["inventario", "spesa", "ricettario", "spreco", "profilo"];
+export const DEFAULT_NAV_TABS: string[] = ["inventario", "spesa", "piano-settimanale", "ricettario", "spreco"];
+export const DEFAULT_DESKTOP_NAV_TABS: string[] = ["inventario", "spesa", "piano-settimanale", "ricettario", "spreco"];
 
 /**
- * Salva le preferenze delle schermate di navigazione su Firestore e localStorage
+ * Salva le preferenze delle schermate di navigazione mobile su Firestore e localStorage
  */
 export async function updateNavTabsPreferences(userId: string, tabs: string[]): Promise<void> {
   if (!userId) return;
@@ -169,6 +163,54 @@ export async function updateNavTabsPreferences(userId: string, tabs: string[]): 
     try {
       localStorage.setItem("user_nav_tabs", JSON.stringify(tabs));
       window.dispatchEvent(new CustomEvent("nav-tabs-updated", { detail: { tabs } }));
+    } catch {
+      // Ignora storage error
+    }
+  }
+}
+
+/**
+ * Salva le preferenze delle schermate della sidebar desktop su Firestore e localStorage
+ */
+export async function updateDesktopNavTabsPreferences(userId: string, tabs: string[]): Promise<void> {
+  if (!userId) return;
+  const userRef = doc(db, "users", userId);
+  await setDoc(userRef, { userProfileDesktopNavTabs: tabs }, { merge: true });
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("user_desktop_nav_tabs", JSON.stringify(tabs));
+      window.dispatchEvent(new CustomEvent("desktop-nav-tabs-updated", { detail: { tabs } }));
+    } catch {
+      // Ignora storage error
+    }
+  }
+}
+
+/**
+ * Salva simultaneamente le preferenze di navigazione sia Mobile che Desktop
+ */
+export async function updateBothNavTabsPreferences(
+  userId: string,
+  mobileTabs: string[],
+  desktopTabs: string[]
+): Promise<void> {
+  if (!userId) return;
+  const userRef = doc(db, "users", userId);
+  await setDoc(
+    userRef,
+    {
+      userProfileNavTabs: mobileTabs,
+      userProfileDesktopNavTabs: desktopTabs,
+    },
+    { merge: true }
+  );
+
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("user_nav_tabs", JSON.stringify(mobileTabs));
+      localStorage.setItem("user_desktop_nav_tabs", JSON.stringify(desktopTabs));
+      window.dispatchEvent(new CustomEvent("nav-tabs-updated", { detail: { tabs: mobileTabs } }));
+      window.dispatchEvent(new CustomEvent("desktop-nav-tabs-updated", { detail: { tabs: desktopTabs } }));
     } catch {
       // Ignora storage error
     }

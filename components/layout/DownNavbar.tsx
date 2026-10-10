@@ -89,13 +89,12 @@ export function DownNavbar() {
     .filter(Boolean) as AppNavScreen[];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/85 dark:bg-[#0a0a0a]/85 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 pb-[env(safe-area-inset-bottom)] transition-all">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl border-t border-zinc-200 dark:border-zinc-800 pb-[env(safe-area-inset-bottom)] transition-all">
       <div className="flex items-center justify-around h-16 px-1 sm:px-2 max-w-lg mx-auto">
         {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
-            pathname.startsWith(`${item.href}/`) ||
-            (item.name === "Profilo" && pathname.includes("/impostazioni"));
+            pathname.startsWith(`${item.href}/`);
           const Icon = ICON_MAP[item.iconName];
 
           return (
@@ -104,13 +103,13 @@ export function DownNavbar() {
               href={item.href}
               className={`flex flex-col items-center justify-center flex-1 h-full space-y-1 transition-all duration-200 min-w-0 ${
                 isActive
-                  ? "text-blue-600 dark:text-blue-400 font-semibold"
-                  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                  ? "text-emerald-600 dark:text-emerald-400 font-bold"
+                  : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
               }`}
             >
               <div className="relative">
                 <Icon
-                  className={`w-5.5 h-5.5 transition-all duration-200 ${
+                  className={`w-5 h-5 transition-all duration-200 ${
                     isActive ? "stroke-[2.5px] scale-110" : "stroke-[2px] scale-100"
                   }`}
                 />

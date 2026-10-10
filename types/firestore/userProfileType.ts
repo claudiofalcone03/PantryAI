@@ -21,6 +21,7 @@ export interface UserProfile {
   mcpTokenCreatedAt?: Timestamp | null;
   fcmTokens?: string[] | null; // Token FCM registrati dai dispositivi dell'utente
   notificationPreferences?: UserNotificationPreferences | null;
-  userProfileNavTabs?: string[] | null; // Array ordinato di ID delle schermate nella navbar
+  userProfileNavTabs?: string[] | null; // Array ordinato di ID delle schermate nella navbar mobile
+  userProfileDesktopNavTabs?: string[] | null; // Array ordinato di ID delle schermate nella sidebar desktop
 }
 

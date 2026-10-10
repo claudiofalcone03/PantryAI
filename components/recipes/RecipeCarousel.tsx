@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { Recipe } from "@/types/firestore/recipeType";
 import type { Product } from "@/types/firestore/productType";
+import { findPantryMatch } from "@/lib/utils/ingredientMatcher";
 
 interface RecipeCarouselProps {
   savedRecipes: Recipe[];
@@ -46,21 +47,16 @@ export function RecipeCarousel({
   const [activeFilter, setActiveFilter] = useState<QuickFilter>("all");
   const [viewMode, setViewMode] = useState<"carousel" | "grid">("carousel");
 
-  // Calcolo disponibilità ingredienti in dispensa per ciascuna ricetta
+  // Calcolo disponibilità ingredienti in dispensa con fuzzy matching per ciascuna ricetta
   const getPantryStats = useMemo(() => {
-    const pantryNames = pantryProducts.map((p) => p.productName.toLowerCase());
-
     return (recipe: Recipe) => {
       const ings = recipe.recipeIngredients || [];
       if (ings.length === 0) return { available: 0, total: 0, percent: 0 };
 
       let available = 0;
       for (const ing of ings) {
-        const nameLower = ing.name.toLowerCase();
-        const has = pantryNames.some(
-          (pName) => pName.includes(nameLower) || nameLower.includes(pName)
-        );
-        if (has) available++;
+        const match = findPantryMatch(ing.name, pantryProducts);
+        if (match.matched) available++;
       }
 
       const percent = Math.round((available / ings.length) * 100);

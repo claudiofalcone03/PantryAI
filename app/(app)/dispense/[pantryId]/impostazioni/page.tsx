@@ -177,17 +177,17 @@ export default function PantrySettingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-24">
-        <div className="px-4 py-6 max-w-2xl mx-auto space-y-6">
+      <main className="flex-1 min-h-0 h-full max-h-screen overflow-y-auto bg-zinc-50 dark:bg-zinc-950 pb-24 text-zinc-900 dark:text-zinc-100">
+        <div className="px-4 sm:px-6 py-6 max-w-4xl mx-auto space-y-6">
           <div className="flex items-center space-x-4 mb-6">
             <Skeleton className="w-9 h-9 rounded-full shrink-0" />
             <Skeleton className="h-8 w-48" />
           </div>
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-zinc-800 space-y-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 shadow-2xs border border-zinc-200 dark:border-zinc-800 space-y-4">
              <Skeleton className="h-6 w-32 mb-4" />
              <Skeleton className="h-10 w-full rounded-xl" />
           </div>
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-zinc-800 space-y-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 shadow-2xs border border-zinc-200 dark:border-zinc-800 space-y-4">
              <Skeleton className="h-6 w-48 mb-4" />
              <Skeleton className="h-10 w-full rounded-xl" />
              <Skeleton className="h-10 w-full rounded-xl" />
@@ -200,24 +200,27 @@ export default function PantrySettingsPage() {
   if (!pantry) return null;
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-24">
-      <div className="px-4 py-6 max-w-2xl mx-auto space-y-6">
+    <main className="flex-1 min-h-0 h-full max-h-screen overflow-y-auto bg-zinc-50 dark:bg-zinc-950 pb-24 text-zinc-900 dark:text-zinc-100">
+      <div className="px-4 sm:px-6 py-6 max-w-4xl mx-auto space-y-6">
 
         {/* Intestazione */}
         <div className="flex items-center space-x-4 mb-6">
           <button
             onClick={() => router.push("/profilo")}
-            className="p-2 bg-white dark:bg-zinc-800 rounded-full shadow-sm border border-gray-200 dark:border-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors"
+            className="p-2.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xs border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+            <ArrowLeft className="w-5 h-5 text-zinc-700 dark:text-zinc-300" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Impostazioni Dispensa</h1>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Impostazioni Dispensa</h1>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Configura il nome, le categorie alimentari e i membri autorizzati</p>
+          </div>
         </div>
 
         {/* Nome Dispensa */}
-        <section className="bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-zinc-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <Pencil className="w-5 h-5 mr-2 text-blue-500" /> Nome Dispensa
+        <section className="bg-white dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 shadow-2xs border border-zinc-200/90 dark:border-zinc-800/90">
+          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center">
+            <Pencil className="w-5 h-5 mr-2 text-emerald-600 dark:text-emerald-400" /> Nome Dispensa
           </h2>
           {isEditingName && isOwner ? (
             <div className="flex flex-col sm:flex-row gap-3">
@@ -225,19 +228,19 @@ export default function PantrySettingsPage() {
                 type="text"
                 value={editNameValue}
                 onChange={(e) => setEditNameValue(e.target.value)}
-                className="flex-1 p-3 border border-gray-300 dark:border-zinc-700 rounded-xl bg-gray-50 dark:bg-zinc-800 text-gray-900 dark:text-white"
+                className="flex-1 p-3 border border-zinc-300 dark:border-zinc-700 rounded-xl bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 placeholder="Nome dispensa"
               />
               <div className="flex gap-2">
                 <button
                   onClick={() => setIsEditingName(false)}
-                  className="px-4 py-3 text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-zinc-800 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors"
+                  className="px-4 py-3 text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 rounded-xl font-semibold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
                 >
                   Annulla
                 </button>
                 <button
                   onClick={handleUpdateName}
-                  className="px-4 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                  className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition-colors cursor-pointer"
                 >
                   Salva
                 </button>
@@ -245,11 +248,11 @@ export default function PantrySettingsPage() {
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <span className="text-lg text-gray-800 dark:text-gray-200">{pantry.pantryName}</span>
+              <span className="text-base font-semibold text-zinc-800 dark:text-zinc-200">{pantry.pantryName}</span>
               {isOwner && (
                 <button
                   onClick={() => setIsEditingName(true)}
-                  className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                  className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-xl transition-colors cursor-pointer"
                 >
                   <Pencil className="w-5 h-5" />
                 </button>
@@ -259,38 +262,38 @@ export default function PantrySettingsPage() {
         </section>
 
         {/* Invito */}
-        <section className="bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-zinc-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <Users className="w-5 h-5 mr-2 text-green-500" /> Invito Membri
+        <section className="bg-white dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 shadow-2xs border border-zinc-200/90 dark:border-zinc-800/90">
+          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center">
+            <Users className="w-5 h-5 mr-2 text-emerald-600 dark:text-emerald-400" /> Invito Membri
           </h2>
-          <div className="flex items-center justify-between bg-gray-50 dark:bg-zinc-800 p-4 rounded-xl border border-gray-200 dark:border-zinc-700">
+          <div className="flex items-center justify-between bg-zinc-50 dark:bg-zinc-800/60 p-4 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Codice Dispensa</p>
-              <p className="text-xl font-mono font-bold tracking-widest text-gray-900 dark:text-white">{pantry.pantryInviteCode}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">Codice Dispensa</p>
+              <p className="text-xl font-mono font-bold tracking-widest text-zinc-900 dark:text-zinc-100">{pantry.pantryInviteCode}</p>
             </div>
             <button
               onClick={handleCopyCode}
-              className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-zinc-700 shadow-sm border border-gray-200 dark:border-zinc-600 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-zinc-600 transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-zinc-700 shadow-2xs border border-zinc-200 dark:border-zinc-600 rounded-xl text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-600 transition-colors font-semibold text-xs cursor-pointer"
             >
               <Copy className="w-4 h-4" />
-              <span className="font-medium text-sm">Copia</span>
+              <span>Copia</span>
             </button>
           </div>
         </section>
 
         {/* Categorie */}
-        <section className="bg-white dark:bg-zinc-900 rounded-2xl p-5 shadow-sm border border-gray-200 dark:border-zinc-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <Plus className="w-5 h-5 mr-2 text-orange-500" /> Categorie Prodotti
+        <section className="bg-white dark:bg-zinc-900 rounded-3xl p-5 sm:p-6 shadow-2xs border border-zinc-200/90 dark:border-zinc-800/90">
+          <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 mb-4 flex items-center">
+            <Plus className="w-5 h-5 mr-2 text-emerald-600 dark:text-emerald-400" /> Categorie Prodotti
           </h2>
           <div className="flex flex-wrap gap-2 mb-4">
             {(pantry.pantryCategories || []).map(cat => (
-              <span key={cat} className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+              <span key={cat} className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80">
                 {cat}
                 {isOwner && (
                   <button
                     onClick={() => handleRemoveCategory(cat)}
-                    className="ml-2 hover:bg-orange-200 dark:hover:bg-orange-800 rounded-full p-0.5 transition-colors"
+                    className="ml-2 hover:bg-emerald-200 dark:hover:bg-emerald-800 rounded-full p-0.5 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -306,11 +309,11 @@ export default function PantrySettingsPage() {
                   value={newCategoryValue}
                   onChange={e => setNewCategoryValue(e.target.value)}
                   placeholder="Nuova categoria"
-                  className="flex-1 px-4 py-2 bg-gray-50 dark:bg-zinc-800 border border-gray-300 dark:border-zinc-700 rounded-xl text-gray-900 dark:text-white"
+                  className="flex-1 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
                 <button
                   onClick={handleAddCategory}
-                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-medium transition-colors"
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs transition-colors cursor-pointer"
                 >
                   Aggiungi
                 </button>
@@ -319,7 +322,7 @@ export default function PantrySettingsPage() {
               {/* Categorie Consigliate */}
               {DEFAULT_PANTRY_CATEGORIES.filter(cat => !(pantry.pantryCategories || []).includes(cat)).length > 0 && (
                 <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Categorie suggerite:</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">Categorie suggerite:</p>
                   <div className="flex flex-wrap gap-2">
                     {DEFAULT_PANTRY_CATEGORIES.filter(cat => !(pantry.pantryCategories || []).includes(cat)).map(cat => (
                       <button
@@ -333,7 +336,7 @@ export default function PantrySettingsPage() {
                             alert("Errore aggiunta categoria: " + getErrorMessage(error));
                           }
                         }}
-                        className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-zinc-800 dark:text-gray-300 dark:hover:bg-zinc-700 border border-gray-200 dark:border-zinc-700 transition-colors"
+                        className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5 mr-1" /> {cat}
                       </button>
@@ -346,30 +349,30 @@ export default function PantrySettingsPage() {
         </section>
 
         {/* Membri */}
-        <section className="bg-white dark:bg-zinc-900 rounded-2xl p-0 shadow-sm border border-gray-200 dark:border-zinc-800 overflow-hidden">
-          <div className="p-5 border-b border-gray-200 dark:border-zinc-800 flex items-center">
-            <Users className="w-5 h-5 mr-2 text-purple-500" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Membri Dispensa</h2>
-            <span className="ml-auto bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 py-1 px-3 rounded-full text-xs font-bold">
+        <section className="bg-white dark:bg-zinc-900 rounded-3xl p-0 shadow-2xs border border-zinc-200/90 dark:border-zinc-800/90 overflow-hidden">
+          <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center">
+            <Users className="w-5 h-5 mr-2 text-emerald-600 dark:text-emerald-400" />
+            <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Membri Dispensa</h2>
+            <span className="ml-auto bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 py-1 px-3 rounded-full text-xs font-bold border border-emerald-200 dark:border-emerald-800/60">
               {pantry.pantryMembers?.length || 0}/10
             </span>
           </div>
-          <div className="divide-y divide-gray-200 dark:divide-zinc-800">
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
             {(pantry.pantryMembers || []).map(member => {
               const isMe = member.memberId === auth.currentUser?.uid;
               return (
-                <div key={member.memberId} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50 dark:bg-zinc-900/50">
+                <div key={member.memberId} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-zinc-50/40 dark:bg-zinc-900/40">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gray-200 dark:bg-zinc-700 rounded-full flex items-center justify-center">
-                      <UserIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                    <div className="w-10 h-10 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
+                      <UserIcon className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                         {member.memberName || "Utente Sconosciuto"}
-                        {isMe && <span className="text-xs bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-md">Tu</span>}
+                        {isMe && <span className="text-[10px] bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 px-2 py-0.5 rounded-md font-bold">Tu</span>}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
-                        {member.memberRole === "owner" ? <Crown className="w-3.5 h-3.5 text-yellow-500" /> : <Pencil className="w-3.5 h-3.5 text-blue-500" />}
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1 mt-0.5">
+                        {member.memberRole === "owner" ? <Crown className="w-3.5 h-3.5 text-amber-500" /> : <Pencil className="w-3.5 h-3.5 text-emerald-500" />}
                         <span className="capitalize">{member.memberRole}</span>
                       </p>
                     </div>
@@ -379,13 +382,13 @@ export default function PantrySettingsPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleChangeRole(member.memberId, member.memberRole)}
-                        className="px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-zinc-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                        className="px-3 py-1.5 text-xs font-semibold border border-zinc-300 dark:border-zinc-700 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                       >
                         Rendi {member.memberRole === "owner" ? "Editor" : "Owner"}
                       </button>
                       <button
                         onClick={() => handleRemoveMember(member.memberId, member.memberName)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-colors cursor-pointer"
                         title="Espelli utente"
                       >
                         <UserMinus className="w-5 h-5" />
@@ -400,19 +403,19 @@ export default function PantrySettingsPage() {
 
         {/* Danger Zone */}
         {isOwner && (
-          <section className="mt-8 pt-4 border-t border-gray-200 dark:border-zinc-800">
-            <div className="bg-red-50 dark:bg-red-950/20 rounded-2xl p-5 border border-red-200 dark:border-red-900/50">
-              <h2 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-2 flex items-center">
+          <section className="mt-8 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="bg-rose-50/60 dark:bg-rose-950/20 rounded-3xl p-5 border border-rose-200/70 dark:border-rose-900/50">
+              <h2 className="text-base font-bold text-rose-700 dark:text-rose-400 mb-2 flex items-center">
                 <Trash className="w-5 h-5 mr-2" /> Danger Zone
               </h2>
-              <p className="text-sm text-red-600 dark:text-red-300 mb-4">
-                Questa azione eliminerà permanentemente la dispensa e rimuoverà tutti i membri.
+              <p className="text-xs text-rose-600 dark:text-rose-300 mb-4">
+                Questa azione eliminerà permanentemente la dispensa e rimuoverà tutti i membri autorizzati.
               </p>
               <button
                 onClick={handleDeletePantry}
-                className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition-colors"
+                className="w-full sm:w-auto px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer shadow-xs"
               >
-                Elimina Dispensa
+                Elimina Dispensa Definitivamente
               </button>
             </div>
           </section>

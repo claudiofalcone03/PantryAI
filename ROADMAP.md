@@ -207,7 +207,109 @@
 
 ---
 
-*Documento aggiornato con le direttive architetturali per la scalabilità, Google AI Studio Live/Transcribe, Strix Security, PWA Push, MCP, Freezer Mode, Ricettario, Comandi Vocali Avanzati, Personalizzazione Mappa e Meal Planning Settimanale.*
+### Fase 10: Riprogettazione UI/UX Desktop & Mobile, Card Compatte, Icone Alimenti & Filtri Avanzati ✅ (COMPLETATA)
+1. **Riprogettazione Mobile-First delle Card Prodotto ([`components/items/ProductListItem.tsx`](./components/items/ProductListItem.tsx) & [`ShoppingListItem.tsx`](./components/items/ShoppingListItem.tsx))**:
+   - Ridimensionamento ergonomico e compattazione dei tasti operativi (28-32px) per liberare spazio orizzontale vitale su schermi smartphone, garantendo la lettura completa del nome di ogni alimento.
+   - Spostamento del pallino di stato conservazione/scadenza sul bordo destro della card.
+   - Integrazione badge emoji/icona cibo (`productIcon`) ed evidenziazione verde smeraldo (`bg-emerald-600`) per gli articoli attivi nella lista della spesa.
+2. **Icone Alimenti Personalizzate & Auto-Assegnazione Intelligente**:
+   - Estensione schema TypeScript con `productIcon?: string | null` in [`types/firestore/productType.ts`](./types/firestore/productType.ts).
+   - Dizionario semantico in italiano [`lib/utils/foodIcons.ts`](./lib/utils/foodIcons.ts) e funzione `autoAssignIconsToPantryProducts` in [`lib/firestore/products.ts`](./lib/firestore/products.ts) per auto-assegnare automaticamente le emoji corrette a tutti i cibi presenti in dispensa al caricamento.
+   - Selettore/picker interattivo con le emoji più diffuse integrato in [`ProductAddPopup`](./components/popups/ProductAddPopup.tsx) e [`ProductEditPopup`](./components/popups/ProductEditPopup.tsx).
+3. **Layout Desktop Ispirato a PantryFlow con Sidebar & Header Dedicati**:
+   - Sidebar fissa a sinistra [`DesktopSidebar`](./components/layout/DesktopSidebar.tsx) (desktop `≥ md`) con brand PantryAI, rotte di navigazione, trigger rapido assistente vocale e profilo utente; barra mobile [`DownNavbar`](./components/layout/DownNavbar.tsx) preservata e visibile esclusivamente su smartphone (`md:hidden`).
+   - Desktop Header in [`app/(app)/inventario/page.tsx`](./app/(app)/inventario/page.tsx) con nome dispensa, contatore totale articoli, pulsante primario verde smeraldo *"+ Aggiungi Articolo"*, tasto fotocamera/scanner, tasto ordinamento, toggle modalità vista (`⊞` Griglia vs `☰` Lista) e campanella notifiche scadenze.
+   - Doppia riga di filtri: Riga 1 con chip categorie arricchiti da emoji e contatori; Riga 2 con chip di disponibilità/stato (*Tutti*, *Disponibili*, *In esaurimento*, *Terminati*, *Congelati*, *In scadenza*).
+   - Modalità visualizzazione flessibile: **Vista Lista (`☰`) come predefinita** (schede orizzontali ad alta leggibilità) con toggle rapido a **Vista Griglia (`⊞`)** a 2-3 colonne e persistenza su `localStorage`.
+4. **Filtri Avanzati & Ordinamento nell'Inventario**:
+   - Modale [`SortFilterPopup`](./components/popups/SortFilterPopup.tsx) per ordinamento alfabetico (A-Z / Z-A), scadenza (più vicina / più lontana), quantità (crescente / decrescente) e data di aggiunta (recenti).
+   - Filtro combinato reattivo integrato con ricerca testuale, categorie e stati.
+
+5. **Armonizzazione Schermate Desktop & Rimozione Assistente Flottante Sovraimpresso**:
+   - Nascosto [`GlobalVoiceFab`](./components/voice/GlobalVoiceFab.tsx) in sovraimpressione sui monitor desktop (`md:hidden`) in [`app/(app)/layout.tsx`](./app/(app)/layout.tsx), preservando la comodità della dettatura vocale tramite la card dedicata nella sidebar ed evitando sovrapposizioni visive sul contenuto.
+   - **Dashboard Impostazioni a 2 Colonne ([`app/(app)/profilo/page.tsx`](./app/(app)/profilo/page.tsx))**: superamento del vecchio contenitore mobile `max-w-md` a favore di una griglia desktop `max-w-6xl` (profilo e azioni a sinistra, dispense, notifiche push e personalizzazioni a destra).
+   - **Dashboard Spreco & CO₂ ([`app/(app)/spreco/page.tsx`](./app/(app)/spreco/page.tsx))**: testata desktop coerente, 3 KPI affiancati in riga superiore (CO₂ Evitata, CO₂ Sprecata, Efficienza con barra visiva) e storico eventi esteso a `max-w-6xl`.
+   - **Lista della Spesa ([`app/(app)/lista-della-spesa/page.tsx`](./app/(app)/lista-della-spesa/page.tsx))**: Desktop Header con pulsante smeraldo *"+ Aggiungi alla Spesa"*, scanner e completamento spesa unificato, con container allargato a `max-w-5xl`.
+   - **Configurazione Dispensa ([`app/(app)/dispense/[pantryId]/impostazioni/page.tsx`](./app/(app)/dispense/[pantryId]/impostazioni/page.tsx))**: eliminazione dei residui `gray-50`/`#0a0a0a` a favore del tema `zinc` ed accenti `emerald`.
+
+---
+
+### Fase 11: Assistente AI Chatbot con Split View Desktop e Trascrizione Vocale ✅ (COMPLETATA)
+1. **Architettura Split View Desktop a Due Aree di Scorrimento Indipendenti**:
+   - Ispirato al layout multi-pannello dei moderni IDE (Cursor/VS Code) e Slack: il viewport desktop è bloccato a piena altezza (`md:h-screen md:overflow-hidden`).
+   - L'area di lavoro centrale ([`app/(app)/AppLayoutShell.tsx`](./app/(app)/AppLayoutShell.tsx), `#main-content-column`) è impostata su `md:h-screen md:overflow-hidden md:min-h-0` e delega lo scorrimento internamente alle singole viste.
+   - Ancoraggio deterministico Flexbox a prova di overlap: nelle pagine dell'app (Inventario, Spesa, Spreco, Ricettario, Profilo) l'header superiore e la barra filtri sono elementi fissi permanenti (`shrink-0 z-20` / `shrink-0 z-10`), mentre la lista card o la dashboard è l'unica sezione che scorre (`flex-1 min-h-0 overflow-y-auto`), eliminando qualsiasi accavallamento visivo o slittamento.
+   - La colonna destra del Chatbot (`w-[420px] lg:w-[460px] h-screen max-h-screen overflow-hidden`) rimane completamente fissa e ancorata al viewport, con header e barra di digitazione fissi e la sola area dei messaggi (`flex-1 min-h-0 overflow-y-auto`) che scorre internamente in modo autonomo.
+   - Zero trascinamento o slittamento del chatbot quando si scorre la lista della dispensa: entrambi i lati sono utilizzabili simultaneamente senza interferenze.
+   - Stato globale gestito da [`AssistantContext`](./context/AssistantContext.tsx) con supporto alla scorciatoia rapida da tastiera `Cmd+J` / `Ctrl+J`.
+2. **Modalità Ibrida Mobile/Desktop Unificata ([`components/assistant/AssistantChatModal.tsx`](./components/assistant/AssistantChatModal.tsx))**:
+   - Supporto a doppia modalità: `mode="docked"` per il pannello affiancato desktop e `mode="modal"` per il bottom-sheet mobile sovrapposto alla navbar (`z-[70]`).
+   - Registrazione audio avanzata tramite `MediaRecorder` universale (supporto Chrome/Android e iOS Safari) e trascrizione audio automatica con intelligenza artificiale tramite Gemini API (`transcribeAndParseVoiceInput`).
+   - Conservazione dell'input testuale in caso di errori e persistenza in tempo reale della cronologia conversazione su Cloud Firestore (`users/{userId}/pantryChats/{pantryId}/messages`).
+
+---
+
+### Fase 12: Riorganizzazione Navigazione 5 Slot, Mobile Profile Avatar, Integrazione Pasti & Spesa Desktop Ibrida ✅ (COMPLETATA)
+1. **Avatar Profilo in Alto a Destra su Mobile & 5 Slot Primari**:
+   - Creato [`MobileProfileButton`](./components/layout/MobileProfileButton.tsx) per spostare l'accesso al profilo e impostazioni in alto a destra negli header delle schermate mobile (`InventoryTopBar`, `ShoppingListTopBar`, Ricettario, Pasti, Spreco).
+   - Su desktop il profilo rimane nell'angolo inferiore della [`DesktopSidebar`](./components/layout/DesktopSidebar.tsx).
+   - Liberato il 5° slot nella barra di navigazione inferiore mobile ([`DownNavbar`](./components/layout/DownNavbar.tsx)) per allineare perfettamente i 5 slot tra Mobile e Desktop:
+     1. **Dispensa** (`/inventario` - `Refrigerator`)
+     2. **Spesa** (`/lista-della-spesa` - `ShoppingCart`)
+     3. **Pasti** (`/piano-settimanale` - `CalendarDays`)
+     4. **Ricettario** (`/ricettario` - `ChefHat`)
+     5. **Spreco & CO₂** (`/spreco` - `Trash2` / `Leaf`)
+2. **Accesso Rapido Piano Pasti nel Ricettario**:
+   - Inserito pulsante pill *"📅 Piano Pasti"* nell'header del Ricettario ([`app/(app)/ricettario/page.tsx`](./app/(app)/ricettario/page.tsx)) sia su desktop che mobile, facilitando il passaggio tra consultazione ricette e meal planning.
+3. **Risoluzione Spazio Vuoto Chatbot Mobile**:
+   - Corretto il gap visivo tra la barra input dello Chef AI e la `DownNavbar` in [`app/(app)/ricettario/page.tsx`](./app/(app)/ricettario/page.tsx), eliminando il padding cumulativo ridondante (`pb-24` -> `pb-2 sm:pb-6`) e riducendo l'altezza minima di base della chat.
+4. **Rimozione Dettatura Vocale nella Lista della Spesa**:
+   - Rimosso il tasto microfono dall'header e dalla barra di ricerca in [`app/(app)/lista-della-spesa/page.tsx`](./app/(app)/lista-della-spesa/page.tsx) e rimossa l'istanza `VoiceDictationModal`.
+5. **Modalità Ibrida 'Aggiungi alla Spesa' su Desktop**:
+   - Nuovo componente [`AddToShoppingListDesktopModal`](./components/popups/AddToShoppingListDesktopModal.tsx):
+     * Ricerca istantanea tra i prodotti censiti in dispensa con visualizzazione scorte ("In dispensa: X pz" o "Attualmente esaurito").
+     * Aggiunta immediata 1-click degli alimenti esistenti alla lista della spesa.
+     * Opzione integrata *"✨ Crea come nuovo prodotto non in dispensa"* per inserire al volo alimenti non ancora a magazzino tramite [`ProductAddPopup`](./components/popups/ProductAddPopup.tsx).
+6. **Coerenza Impostazioni & Personalizzazione**:
+   - Aggiornato `ALL_APP_SCREENS` e `DEFAULT_NAV_TABS` in [`lib/firestore/userProfile.ts`](./lib/firestore/userProfile.ts) e [`NavCustomizationPopup`](./components/navigation/NavCustomizationPopup.tsx) vincolando la configurazione alle 5 sezioni attive con tema verde smeraldo.
+
+---
+
+### Fase 13: Separazione AI Conversazionale, Pulsante Fluttuante Draggable, Pulizia Scadenze a Quantità Zero & Calendario Pasti Adattivo ✅ (COMPLETATA)
+1. **Separazione AI Conversazionale dallo Chat Input nel Ricettario**:
+   - Spostato il pulsante dello Chef Live a mani libere da dentro il form di chat a una pill dedicata in evidenza (*"🎙️ Chef Live a mani libere"*) subito sopra la barra di digitazione in [`app/(app)/ricettario/page.tsx`](./app/(app)/ricettario/page.tsx).
+   - Eliminata completamente la sovrapposizione fisica nell'angolo inferiore destro con il pulsante fluttuante mobile.
+2. **Pulsante Fluttuante Draggable ([`components/voice/GlobalVoiceFab.tsx`](./components/voice/GlobalVoiceFab.tsx))**:
+   - Implementato trascinamento continuo touch e puntatore (`pointerdown`, `pointermove`, `pointerup`, pointer capture) con feedback visivo durante il drag (`cursor-grab` -> `cursor-grabbing`, scale 1.1x, anello luminoso).
+   - Distinzione affidabile tra tap (<5px di spostamento) per aprire la chat e drag prolungato per riposizionamento.
+   - Vincoli di sicurezza dimensionali (clamping): il pulsante non può uscire dai bordi né sovrapporsi alla navbar inferiore mobile.
+   - Persistenza automatica della posizione in `localStorage` (`pantryai_voice_fab_pos`), mantenendo la posizione preferita dell'utente tra cambi di pagina e ricaricamenti.
+3. **Rimozione della Data di Scadenza ad Azzeramento Quantità**:
+   - Regola architetturale attiva: quando la quantità di un alimento si riduce a zero (`productQuantity <= 0`), la data di scadenza (`expiryDateProduct`, `productOpenedExpiryAt`, `productFrozenExpiryAt`) viene automaticamente azzerata (`null`) in [`lib/firestore/products.ts`](./lib/firestore/products.ts) e [`lib/offline/syncManager.ts`](./lib/offline/syncManager.ts).
+   - Bonifica automatica retroattiva: durante la lettura dei prodotti della dispensa (`getProductsByPantry`), eventuali alimenti con quantità zero e scadenze residue vengono ripuliti sia in memoria che su Cloud Firestore in background.
+4. **Adattamento Calendario 7 Giorni nel Piano Pasti ([`app/(app)/piano-settimanale/page.tsx`](./app/(app)/piano-settimanale/page.tsx))**:
+   - Ridotta la larghezza minima dei pulsanti giorno da `min-w-[70px]` a `min-w-[50px] sm:min-w-[64px]` con padding compatto, garantendo che tutti i giorni (inclusi Sabato e Domenica) siano visibili e facilmente raggiungibili.
+   - Auto-centraggio orizzontale automatico e fluido (`scrollIntoView({ inline: "center", behavior: "smooth" })`) sul giorno corrente di oggi o sul giorno selezionato sia all'apertura che al cambio di scheda.
+
+---
+
+### Fase 14: Simulazione Desktop Avanzata della Navigazione & Configurazioni Indipendenti Sincronizzate ✅ (COMPLETATA)
+1. **Riconoscimento Intelligente del Dispositivo / Viewport**:
+   - [`NavCustomizationPopup`](./components/navigation/NavCustomizationPopup.tsx) rileva all'apertura se l'utente si trova su monitor desktop (`window.innerWidth >= 768`) o smartphone (`< 768`), precaricando la modalità pertinente in modo predefinito.
+   - Switch segmentato esplicito `[📱 Mobile (Barra)]` vs `[💻 Desktop (Sidebar)]` per testare e personalizzare entrambi i dispositivi in qualsiasi momento.
+2. **Simulazione Realistica 1:1 della Sidebar Desktop**:
+   - In modalità desktop, il popup renderizza un simulatore realistico della finestra con la Sidebar Laterale: mini-logo brand con foglia smeraldo `PantryAI`, lista verticale ordinata delle pagine con le icone dedicate, stato attivo in evidenza e footer con Chef AI (`Cmd+J`) e profilo.
+   - In modalità mobile, renderizza la simulazione frosted glass della barra di navigazione inferiore.
+3. **Preferenze Indipendenti Sincronizzate su Cloud Firestore**:
+   - Modello dati [`UserProfile`](./types/firestore/userProfileType.ts) e modulo [`lib/firestore/userProfile.ts`](./lib/firestore/userProfile.ts) arricchiti con `userProfileDesktopNavTabs`:
+     * **Mobile**: vincolo da 3 a 5 schermate per ergonomia smartphone.
+     * **Desktop**: vincolo da 2 fino a 8 schermate per scalabilità futura e moduli avanzati.
+   - Le preferenze vengono sincronizzate nel database Firestore dell'utente e memorizzate in `localStorage`, aggiornando istantaneamente in tempo reale sia la [`DesktopSidebar`](./components/layout/DesktopSidebar.tsx) sia la [`DownNavbar`](./components/layout/DownNavbar.tsx).
+
+---
+
+*Documento aggiornato con il completamento di Fase 14: Simulazione Desktop Avanzata della Navigazione, Device Detection e Configurazioni Indipendenti Sincronizzate.*
+
 
 
 

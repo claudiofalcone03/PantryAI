@@ -18,9 +18,14 @@ import {
   AlertTriangle,
   Code2,
   Server,
-  Zap
+  Zap,
+  Sparkles,
+  ExternalLink,
+  Layers,
+  ArrowUpRight,
 } from "lucide-react";
 import type { UserProfile } from "@/types/firestore/userProfileType";
+import { GENKIT_FLOWS_MANIFEST } from "@/lib/genkit/manifest";
 import { rotateUserMcpToken, revokeUserMcpToken } from "@/lib/firestore/userProfile";
 import { getPendingMutations, clearAllPendingMutations, getCachedProducts, getCachedShoppingItems } from "@/lib/offline/indexedDb";
 import { syncOfflineMutations } from "@/lib/offline/syncManager";
@@ -192,9 +197,9 @@ export default function DevToolsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100 pb-16">
-      {/* Top Bar con Tasto Indietro */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-gray-200 dark:border-zinc-800">
+    <div className="flex-1 flex flex-col min-h-0 h-full max-h-screen overflow-hidden bg-gray-50 dark:bg-zinc-950 text-gray-900 dark:text-zinc-100">
+      {/* Top Bar con Tasto Indietro - PERMANENTEMENTE ANCORATA: shrink-0 */}
+      <header className="shrink-0 z-20 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-gray-200 dark:border-zinc-800">
         <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
           <button
             onClick={() => router.back()}
@@ -212,7 +217,8 @@ export default function DevToolsPage() {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      {/* Main Content - UNICA AREA CHE SCORRE */}
+      <main className="flex-1 min-h-0 overflow-y-auto max-w-3xl w-full mx-auto px-4 py-6 space-y-6 pb-24 md:pb-12">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2.5">
             <Terminal className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -451,6 +457,103 @@ export default function DevToolsPage() {
                 <span>{firestoreError || "Errore durante il test di connessione."}</span>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* 4. SEZIONE ARCHITETTURA FLUSSI GENKIT & TRACCIABILITÀ AI */}
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 shadow-xs overflow-hidden">
+          <div className="p-5 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2 text-sm sm:text-base">
+                  Flussi Genkit & Tracciabilità AI
+                  <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    Genkit 1.39 • gemini-3.1-flash-lite
+                  </span>
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  8 flussi tipizzati con Zod e OpenTelemetry a copertura di tutte le funzionalità AI sia mobile che desktop.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push("/profilo/sviluppo/genkit")}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition-colors"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Studio & Test</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Quick Actions Genkit UI */}
+            <div className="flex flex-wrap items-center gap-2.5 p-3.5 rounded-xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30">
+              <div className="flex-1 min-w-[200px]">
+                <p className="text-xs font-semibold text-gray-900 dark:text-white">Genkit Developer UI</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  Ispeziona span di traccia, latenza, prompt e token su porta locale 4000.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.open("http://localhost:4000", "_blank", "noopener,noreferrer")}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Apri Dev UI (:4000)</span>
+                </button>
+                <button
+                  onClick={() => router.push("/profilo/sviluppo/genkit")}
+                  className="px-3 py-1.5 bg-white dark:bg-zinc-800 hover:bg-gray-100 dark:hover:bg-zinc-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-zinc-700 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5"
+                >
+                  <Layers className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Mappa Architettura</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Griglia Flussi Registrati */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {GENKIT_FLOWS_MANIFEST.map((f) => (
+                <div
+                  key={f.id}
+                  className="p-3 rounded-xl bg-gray-50 dark:bg-zinc-800/60 border border-gray-200/70 dark:border-zinc-700/60 flex items-start justify-between gap-2"
+                >
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-semibold text-gray-900 dark:text-white truncate">
+                        {f.name}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-1 font-mono">
+                      {f.id}
+                    </p>
+                    <div className="flex items-center gap-1 mt-1.5 text-[9px] text-gray-400">
+                      <span className="px-1.5 py-0.5 rounded bg-gray-200/80 dark:bg-zinc-700/80 text-gray-700 dark:text-gray-300">
+                        {f.category}
+                      </span>
+                      <span>• Mobile & Desktop</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Snippet terminale per avvio Dev UI */}
+            <div className="p-3 bg-gray-50 dark:bg-zinc-800/80 border border-gray-200/60 dark:border-zinc-700/60 rounded-xl text-[11px] font-mono text-gray-600 dark:text-gray-400 flex items-center justify-between">
+              <span>Avvia Dev UI: <code className="text-emerald-600 dark:text-emerald-400 font-semibold">npm run genkit:ui</code></span>
+              <button
+                onClick={() => router.push("/profilo/sviluppo/genkit")}
+                className="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 text-[11px] font-sans font-medium"
+              >
+                Vedi tutti i dettagli ➔
+              </button>
+            </div>
           </div>
         </div>
       </main>

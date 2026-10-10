@@ -8,6 +8,9 @@ import { updateShoppingListItemStatus } from "@/lib/firestore/shoppingList";
 import { auth } from "@/lib/firebase";
 import { enqueueOfflineMutation } from "@/lib/offline/indexedDb";
 
+import { getEffectiveExpiryDate } from "@/lib/firestore/pantries";
+import { getFoodIcon } from "@/lib/utils/foodIcons";
+
 interface ShoppingListItemProps {
   item: ShoppingListItemType;
   product?: Product;
@@ -76,55 +79,74 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
     }
   };
 
-  return (
-    <div className={`flex items-center justify-between p-4 border rounded-2xl shadow-sm transition-all mb-3 ${isPurchased ? 'bg-zinc-50 border-zinc-200 dark:bg-zinc-900/50 dark:border-zinc-800 opacity-60' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'}`}>
+  const foodEmoji = getFoodIcon(item.listItemName, product?.productCategory, product?.productIcon);
 
-      {/*Checkbox e nome */}
-      <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
+  return (
+    <div
+      className={`flex items-center justify-between p-2.5 sm:p-3.5 border rounded-2xl shadow-xs transition-all mb-2 sm:mb-2.5 group ${
+        isPurchased
+          ? "bg-zinc-50 border-zinc-200 dark:bg-zinc-900/50 dark:border-zinc-800 opacity-60"
+          : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
+      }`}
+    >
+      {/* Checkbox, icona e nome */}
+      <div className="flex items-center gap-2 sm:gap-2.5 flex-1 min-w-0 pr-2">
         <button
           onClick={handleTogglePurchased}
           disabled={isUpdating}
-          className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-colors ${isPurchased
-            ? 'bg-green-500 border-green-500 text-white'
-            : 'border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-transparent hover:border-green-500 dark:hover:border-green-500'
-            }`}
+          className={`w-6 h-6 rounded-lg border flex items-center justify-center shrink-0 transition-colors ${
+            isPurchased
+              ? "bg-green-500 border-green-500 text-white"
+              : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-transparent hover:border-green-500 dark:hover:border-green-500"
+          }`}
         >
-          <Check className="w-4 h-4" />
+          <Check className="w-3.5 h-3.5" />
         </button>
 
-        <div className="flex flex-col min-w-0">
-          <span className={`font-semibold text-lg truncate ${isPurchased ? 'text-zinc-500 dark:text-zinc-400 line-through' : 'text-zinc-900 dark:text-zinc-100'}`}>
+        {/* Icona alimento */}
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-base sm:text-lg shrink-0 select-none shadow-xs">
+          {foodEmoji}
+        </div>
+
+        <div className="flex flex-col min-w-0 flex-1">
+          <span
+            className={`font-semibold text-sm sm:text-base truncate ${
+              isPurchased
+                ? "text-zinc-400 dark:text-zinc-500 line-through"
+                : "text-zinc-900 dark:text-zinc-100"
+            }`}
+          >
             {item.listItemName}
           </span>
           {product && (
-            <div className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Quantità già disponibile: {product.productQuantity}
+            <div className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
+              In dispensa: {product.productQuantity} {product.productUnitOfMeasure || "pz"}
             </div>
           )}
           {isReserved && !isPurchased && (
-            <span className="text-xs text-orange-500 font-medium mt-0.5">
+            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
               Prenotato da {item.listItemReservedBy || "qualcuno"}
             </span>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
-
+      <div className="flex items-center gap-1.5 shrink-0">
         {/* Bottone "Lo Compro Io" */}
         {!isPurchased && (
           <button
             onClick={handleToggleReserved}
             disabled={isUpdating || (isReserved && item.listItemReservedBy !== currentMemberName)}
-            className={`p-2 rounded-full transition-colors border ${isReserved
-              ? (item.listItemReservedBy === currentMemberName
-                ? 'bg-orange-100 border-orange-200 text-orange-700 dark:bg-orange-900/40 dark:border-orange-800 dark:text-orange-400'
-                : 'bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed dark:bg-zinc-800 dark:border-zinc-700')
-              : 'bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-orange-600 hover:bg-orange-50 hover:border-orange-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-orange-400 dark:hover:bg-orange-950/20 dark:hover:border-orange-900/30'
-              }`}
+            className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-colors border ${
+              isReserved
+                ? item.listItemReservedBy === currentMemberName
+                  ? "bg-amber-100 border-amber-200 text-amber-700 dark:bg-amber-900/40 dark:border-amber-800 dark:text-amber-400"
+                  : "bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed dark:bg-zinc-800 dark:border-zinc-700"
+                : "bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-amber-600 hover:bg-amber-50 hover:border-amber-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-amber-400 dark:hover:bg-amber-950/20"
+            }`}
             title="Lo compro io"
           >
-            <Hand className={`w-5 h-5 ${isReserved ? "fill-current" : ""}`} />
+            <Hand className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isReserved ? "fill-current" : ""}`} />
           </button>
         )}
       </div>

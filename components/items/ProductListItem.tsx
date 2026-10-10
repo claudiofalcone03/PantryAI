@@ -11,6 +11,7 @@ import { RemoveQuantityPopup } from "../popups/RemoveQuantityPopup";
 import { FreezeProductPopup } from "../popups/FreezeProductPopup";
 import { getEffectiveExpiryDate } from "@/lib/firestore/pantries";
 import { enqueueOfflineMutation } from "@/lib/offline/indexedDb";
+import { getFoodIcon } from "@/lib/utils/foodIcons";
 
 interface ProductListItemProps {
   product: Product;
@@ -282,54 +283,67 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
     ? "Consumare entro: "
     : "Scade: ";
 
+  const foodEmoji = getFoodIcon(product.productName, product.productCategory, product.productIcon);
+
   return (
     <>
       <div
         onClick={onClick}
-        className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all cursor-pointer mb-3"
+        className="flex items-center justify-between p-2.5 sm:p-3.5 bg-white dark:bg-zinc-900 rounded-2xl shadow-xs border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all cursor-pointer mb-2 sm:mb-2.5 relative overflow-hidden group"
       >
-        <div className="flex-1 min-w-0 pr-4">
-          <div className="flex items-center gap-2">
-            {/* Pallino status */}
-            <div className={`w-3 h-3 rounded-full ${statusColor} shrink-0`} title="Status" />
-            <h3 className="font-semibold text-lg text-zinc-900 dark:text-zinc-100 truncate">
-              {product.productName}
-            </h3>
-            {isFrozen && (
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0">
-                <Snowflake className="w-3 h-3" />
-                Congelato
-              </span>
-            )}
-            {!isFrozen && isOpened && (
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-md shrink-0">
-                Aperto
-              </span>
-            )}
+        {/* Blocco sinistro: Icona + Dettagli Prodotto */}
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-1 min-w-0 pr-1.5 sm:pr-2">
+          {/* Icona Alimento / Emoji */}
+          <div
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-lg sm:text-xl shrink-0 select-none shadow-xs group-hover:scale-105 transition-transform"
+            title={product.productCategory || "Alimento"}
+          >
+            {foodEmoji}
           </div>
 
-          {formattedDate && (
-            <div className="flex items-center gap-1 text-sm text-zinc-500 dark:text-zinc-400 pl-5">
-              <Clock className="w-4 h-4" />
-              <span>{dateLabel}{formattedDate}</span>
+          {/* Nome, Badge e Scadenza */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="font-semibold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 truncate max-w-full">
+                {product.productName}
+              </h3>
+              {isFrozen && (
+                <span className="text-[9px] font-bold uppercase tracking-wider bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 px-1.5 py-0.2 rounded-md flex items-center gap-0.5 shrink-0">
+                  <Snowflake className="w-2.5 h-2.5" />
+                  Freezer
+                </span>
+              )}
+              {!isFrozen && isOpened && (
+                <span className="text-[9px] font-bold uppercase tracking-wider bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-1.5 py-0.2 rounded-md shrink-0">
+                  Aperto
+                </span>
+              )}
             </div>
-          )}
 
-          {!isFrozen && !isOpened && product.shelfLifeDays && (
-            <div className="text-xs text-zinc-400 dark:text-zinc-500 pl-5">
-              Durata dopo apertura: {product.shelfLifeDays} {product.shelfLifeDays === 1 ? "giorno" : "giorni"}
-            </div>
-          )}
+            {formattedDate && (
+              <div className="flex items-center gap-1 text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                <Clock className="w-3 h-3 text-zinc-400 shrink-0" />
+                <span className="truncate">{dateLabel}{formattedDate}</span>
+              </div>
+            )}
+
+            {!isFrozen && !isOpened && product.shelfLifeDays && (
+              <div className="text-[10px] text-zinc-400 dark:text-zinc-500 truncate">
+                Dopo apertura: {product.shelfLifeDays} {product.shelfLifeDays === 1 ? "giorno" : "giorni"}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Blocco destro: Tasti Operativi Compatti + Pallino Status a destra */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pl-1">
           {/* Tasto Congela / Scongela (Freezer) */}
           {quantity > 0 && (
             <button
-              className={`p-2.5 rounded-full transition-colors border ${
+              className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-colors border ${
                 isFrozen
                   ? "bg-cyan-100 border-cyan-200 text-cyan-700 hover:bg-cyan-200 dark:bg-cyan-950/40 dark:border-cyan-800 dark:text-cyan-300 dark:hover:bg-cyan-900/50"
-                  : "bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-cyan-600 hover:bg-cyan-50 hover:border-cyan-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-cyan-400 dark:hover:bg-cyan-950/20 dark:hover:border-cyan-900/30"
+                  : "bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-cyan-600 hover:bg-cyan-50 hover:border-cyan-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-cyan-400 dark:hover:bg-cyan-950/20"
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -337,24 +351,24 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
               }}
               title={isFrozen ? "Alimento congelato - Clicca per scongelare" : "Conserva nel freezer"}
             >
-              <Snowflake className="w-5 h-5" />
+              <Snowflake className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           )}
 
-          {/* Bottone "Apri"  */}
+          {/* Bottone "Apri" */}
           {product.shelfLifeDays && !isOpened && !isFrozen && quantity > 0 && (
             <button
-              className="p-2.5 rounded-full transition-colors border bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-green-600 hover:bg-green-50 hover:border-green-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-green-400 dark:hover:bg-green-950/20 dark:hover:border-green-900/30"
+              className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-colors border bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-green-600 hover:bg-green-50 hover:border-green-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-green-400 dark:hover:bg-green-950/20"
               onClick={handleOpenProduct}
               disabled={isOpening}
               title="Apri prodotto"
             >
-              <PackageOpen className="w-5 h-5" />
+              <PackageOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           )}
 
-          {/* Quantità */}
-          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 border border-zinc-200 dark:border-zinc-700 relative">
+          {/* Stepper Quantità Compatto */}
+          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 rounded-lg p-0.5 border border-zinc-200 dark:border-zinc-700 relative h-7.5 sm:h-8">
             <RemoveQuantityPopup
               isOpen={showDecreaseOptions}
               onClose={(e) => {
@@ -366,7 +380,7 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
             />
 
             <button
-              className="p-1.5 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 transition-colors disabled:opacity-50"
+              className="w-5.5 h-6 sm:w-6 sm:h-6 rounded flex items-center justify-center hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 transition-colors disabled:opacity-50"
               onClick={(e) => {
                 e.stopPropagation();
                 if (!showDecreaseOptions) setShowDecreaseOptions(true);
@@ -374,34 +388,47 @@ export function ProductListItem({ product, onClick, onProductUpdated }: ProductL
               }}
               disabled={quantity <= 0 || isUpdating}
             >
-              <Minus className="w-4 h-4" />
+              <Minus className="w-3 h-3" />
             </button>
 
-            <span className="w-8 text-center font-medium text-zinc-900 dark:text-zinc-100">
+            <span className="w-5 sm:w-6 text-center text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {quantity}
             </span>
 
             <button
-              className="p-1.5 rounded-full hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 transition-colors disabled:opacity-50"
+              className="w-5.5 h-6 sm:w-6 sm:h-6 rounded flex items-center justify-center hover:bg-white dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-400 transition-colors disabled:opacity-50"
               onClick={(e) => handleUpdateQuantity(e, 1)}
               disabled={isUpdating}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3 h-3" />
             </button>
           </div>
 
-          {/* Tasto lista della spesa */}
+          {/* Tasto Lista della Spesa (stile PantryFlow verde pieno quando attivo) */}
           <button
-            className={`p-2.5 rounded-full transition-colors border ${inShoppingList
-              ? "bg-green-100 border-green-200 text-green-700 dark:bg-green-900/40 dark:border-green-800 dark:text-green-400"
-              : "bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300 dark:hover:bg-zinc-700"
-              }`}
+            className={`w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all border ${
+              inShoppingList
+                ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+                : "bg-zinc-50 border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300 dark:hover:bg-zinc-700"
+            }`}
             onClick={handleToggleShoppingList}
             disabled={isShoppingListUpdating}
             title={inShoppingList ? "Rimuovi dalla lista della spesa" : "Aggiungi alla lista della spesa"}
           >
-            <ShoppingCart className={`w-5 h-5 ${inShoppingList ? "fill-current" : ""}`} />
+            <ShoppingCart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${inShoppingList ? "fill-current" : ""}`} />
           </button>
+
+          {/* Pallino dello stato a destra (dopo tutti i pulsanti) */}
+          <div
+            className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full ${statusColor} shrink-0 ml-1 shadow-xs`}
+            title={`Stato scadenza: ${
+              statusColor === "bg-red-500"
+                ? "Scaduto"
+                : statusColor === "bg-yellow-500"
+                ? "In scadenza"
+                : "Fresco"
+            }`}
+          />
         </div>
       </div>
 

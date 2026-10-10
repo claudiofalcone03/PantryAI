@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 import {
   Send,
   Clock,
@@ -16,6 +17,7 @@ import {
   Bookmark,
   BookmarkCheck,
   Sparkles,
+  CalendarDays,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -32,6 +34,7 @@ import {
   getGeminiModelName,
   getGeminiLiveConfig,
   buildLiveChefPantryContext,
+  extractStructuredRecipe,
   type PantryContextProduct,
 } from "@/lib/genkit/genkit";
 import type { Product } from "@/types/firestore/productType";
@@ -42,6 +45,8 @@ import {
   VoiceDictationModal,
   RecipeCarousel,
   RecipeInlineDetail,
+  MobileProfileButton,
+  MarkdownRenderer,
 } from "@/components";
 import { GeminiLiveClient } from "@/lib/audio/geminiLiveClient";
 import { parseRecipeFromChatText } from "@/lib/recipes/recipeParser";
@@ -140,7 +145,7 @@ export default function RicettarioPage() {
       }));
 
       const ricettaText = await generateRecipeExpiration(mappedProducts);
-      const parsed = parseRecipeFromChatText(ricettaText, true);
+      const parsed = await extractStructuredRecipe(ricettaText, true);
 
       setAntiWasteRecipes([
         {
@@ -387,27 +392,54 @@ export default function RicettarioPage() {
       if (!currentPantryId) throw new Error("Nessuna dispensa selezionata.");
       const expiringProducts = await getExpiringProductsByPantry(currentPantryId, 7);
 
-      if (expiringProducts.length === 0) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "ai", content: "Ottima notizia! Non hai alimenti in scadenza nei prossimi 7 giorni." },
-        ]);
-        setIsLoading(false);
-        return;
+      if (expiringProducts.length > 0) {
+        const mappedProducts = expiringProducts.map((p) => ({
+          nome: p.productName,
+          quantita: `${p.productQuantity} ${p.productUnitOfMeasure || ""}`.trim(),
+        }));
+        const ricetta = await generateRecipeExpiration(mappedProducts);
+        setMessages((prev) => [...prev, { role: "ai", content: ricetta, isAntiWaste: true }]);
+      } else {
+        // Nessun prodotto in scadenza: usiamo i prodotti disponibili o ingredienti base della dispensa
+        const allProducts = await getProductsByPantry(currentPantryId);
+        const available = allProducts.filter((p) => p.productQuantity > 0).slice(0, 5);
+
+        if (available.length > 0) {
+          const mappedAvailable = available.map((p) => ({
+            nome: p.productName,
+            quantita: `${p.productQuantity} ${p.productUnitOfMeasure || ""}`.trim(),
+          }));
+          const ricetta = await generateRecipeFromIngredients(mappedAvailable);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "ai",
+              content: `Ottima notizia! Non hai alimenti in scadenza nei prossimi 7 giorni. Ho comunque creato una ricetta speciale con gli ingredienti disponibili nella tua dispensa:\n\n${ricetta}`,
+              isAntiWaste: true,
+            },
+          ]);
+        } else {
+          // Dispensa vuota: genera ricetta base salvatempo
+          const ricettaBase = await generateRecipeFromIngredients([
+            { nome: "Pasta di semola", quantita: "320g" },
+            { nome: "Pomodori pelati o passata", quantita: "400g" },
+            { nome: "Olio extravergine d'oliva", quantita: "2 cucchiai" },
+          ]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "ai",
+              content: `La tua dispensa è al momento vuota o non ha prodotti registrati. Ecco un'idea antispreco salva-cena con ingredienti base:\n\n${ricettaBase}`,
+              isAntiWaste: true,
+            },
+          ]);
+        }
       }
-
-      const mappedProducts = expiringProducts.map((p) => ({
-        nome: p.productName,
-        quantita: `${p.productQuantity} ${p.productUnitOfMeasure || ""}`.trim(),
-      }));
-
-      const ricetta = await generateRecipeExpiration(mappedProducts);
-      setMessages((prev) => [...prev, { role: "ai", content: ricetta, isAntiWaste: true }]);
     } catch (error) {
       console.error("Errore durante la generazione della ricetta:", error);
       setMessages((prev) => [
         ...prev,
-        { role: "ai", content: "Si è verificato un errore durante la generazione della ricetta." },
+        { role: "ai", content: "Si è verificato un errore durante la generazione della ricetta con Gemini. Riprova tra poco." },
       ]);
     } finally {
       setIsLoading(false);
@@ -510,7 +542,7 @@ export default function RicettarioPage() {
     setSavingRecipeIdx(msgIndex);
     try {
       const uid = auth.currentUser.uid;
-      const parsed = parseRecipeFromChatText(msgContent, isAntiWaste);
+      const parsed = await extractStructuredRecipe(msgContent, isAntiWaste);
       const recipeId = await saveRecipe(uid, parsed, currentPantryId || null);
 
       const newRecipe: Recipe = {
@@ -542,7 +574,7 @@ export default function RicettarioPage() {
   };
 
   return (
-    <div className="relative flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20">
+    <div className="relative flex-1 flex flex-col min-h-0 h-full max-h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950">
       {/* Ambient Glow quando Live Chef è attivo */}
       {isLiveActive && (
         <div
@@ -557,9 +589,9 @@ export default function RicettarioPage() {
         />
       )}
 
-      {/* Top Bar Intestazione */}
-      <header className="p-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 sticky top-0 z-20 shrink-0">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
+      {/* Top Bar Intestazione - PERMANENTEMENTE ANCORATA: shrink-0 */}
+      <header className="p-3.5 sm:p-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 shrink-0 z-20">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-900/50">
               <ChefHat className="w-5 h-5" />
@@ -574,17 +606,34 @@ export default function RicettarioPage() {
             </div>
           </div>
 
-          {isLiveActive && (
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 animate-pulse">
-              <Radio className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Live Attivo</span>
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Scorciatoia Rapida Piano Pasti Settimanale */}
+            <Link
+              href="/piano-settimanale"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition-colors cursor-pointer shadow-2xs"
+              title="Apri il Piano Pasti Settimanale"
+            >
+              <CalendarDays className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span className="hidden xs:inline">Piano Pasti</span>
+            </Link>
+
+            {isLiveActive && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 animate-pulse">
+                <Radio className="w-3.5 h-3.5 text-indigo-500" />
+                <span className="hidden sm:inline">Live Attivo</span>
+              </span>
+            )}
+
+            {/* Mobile Profile Avatar */}
+            <div className="md:hidden">
+              <MobileProfileButton />
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 w-full max-w-3xl mx-auto p-4 flex flex-col z-1">
+      {/* Main Content - UNICA AREA CHE SCORRE */}
+      <main className="flex-1 min-h-0 overflow-y-auto w-full max-w-4xl mx-auto p-3 sm:p-4 flex flex-col z-1 pb-2 sm:pb-6">
         {/* PARTE ALTA: Carosello di Ricette */}
         <section aria-label="Carosello Ricettario">
           <RecipeCarousel
@@ -628,7 +677,7 @@ export default function RicettarioPage() {
           {/* Contenitore Messaggi Scrollabile */}
           <div
             ref={chatScrollRef}
-            className="flex-1 overflow-y-auto space-y-3 min-h-[280px] max-h-[500px] p-2 -mx-2 rounded-2xl bg-zinc-100/40 dark:bg-zinc-900/30 border border-zinc-200/50 dark:border-zinc-800/50"
+            className="flex-1 overflow-y-auto space-y-3 min-h-[200px] max-h-[500px] p-2 -mx-2 rounded-2xl bg-zinc-100/40 dark:bg-zinc-900/30 border border-zinc-200/50 dark:border-zinc-800/50"
           >
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-48 text-zinc-400 text-xs text-center px-4">
@@ -652,7 +701,7 @@ export default function RicettarioPage() {
                   className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"} animate-in fade-in slide-in-from-bottom-2 duration-200`}
                 >
                   <div
-                    className={`px-4 py-3 max-w-[90%] sm:max-w-[85%] rounded-2xl shadow-xs whitespace-pre-wrap relative ${
+                    className={`px-4 py-3 max-w-[90%] sm:max-w-[85%] rounded-2xl shadow-xs relative ${
                       msg.role === "user"
                         ? "bg-emerald-600 text-white rounded-br-none"
                         : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-tl-none"
@@ -672,7 +721,10 @@ export default function RicettarioPage() {
                       </div>
                     )}
 
-                    {msg.content}
+                    <MarkdownRenderer
+                      content={msg.content}
+                      isUser={msg.role === "user"}
+                    />
 
                     {msg.isInterim && msg.role === "user" && (
                       <span className="inline-block w-1.5 h-3 ml-1 bg-white/80 animate-pulse rounded-full align-middle" />
@@ -741,7 +793,18 @@ export default function RicettarioPage() {
           {/* Barra Input & Azioni Rapide */}
           <div className="mt-3 pt-2">
             {!isLiveActive && (
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2.5">
+                {/* Tasto Dedicato Chef Vocale Live (AI Conversazionale) */}
+                <button
+                  type="button"
+                  onClick={startLiveChefSession}
+                  className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 hover:from-indigo-500 hover:to-purple-600 text-white rounded-full text-xs font-semibold shadow-xs hover:shadow-md transition-all active:scale-95 cursor-pointer"
+                  title="Avvia Chef Vocale Live a mani libere (AI Conversazionale)"
+                >
+                  <ChefHat className="w-3.5 h-3.5 text-white" />
+                  <span>🎙️ Chef Live a mani libere</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleExpiringProducts}
@@ -866,45 +929,36 @@ export default function RicettarioPage() {
                 </div>
               </div>
             ) : (
-              /* Modalità Standard: Input Testo + Dettatura + Live Chef */
-              <form className="relative flex items-center gap-2" onSubmit={handleChatSubmit}>
-                <div className="relative flex-1">
+              /* Modalità Standard: Input Testo con Microfono e Invio Integrati */
+              <form className="relative w-full" onSubmit={handleChatSubmit}>
+                <div className="relative w-full">
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Chiedi una ricetta, varianti o consigli..."
                     disabled={isLoading}
-                    className="w-full pl-4 pr-12 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors disabled:opacity-50 text-sm"
+                    className="w-full pl-4 pr-[84px] py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-xs transition-colors disabled:opacity-50 text-sm"
                   />
-                  <button
-                    type="submit"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-50 shadow-xs"
-                    disabled={!input.trim() || isLoading}
-                    title="Invia richiesta"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsVoiceDictationOpen(true)}
+                      className="p-2 text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors rounded-xl cursor-pointer"
+                      title="Dettatura vocale con trascrizione"
+                    >
+                      <Mic className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    </button>
+                    <button
+                      type="submit"
+                      className="p-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-40 shadow-xs cursor-pointer"
+                      disabled={!input.trim() || isLoading}
+                      title="Invia richiesta"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsVoiceDictationOpen(true)}
-                  className="p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:text-emerald-600 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-xs shrink-0"
-                  title="Dettatura vocale ricetta con trascrizione"
-                >
-                  <Mic className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={startLiveChefSession}
-                  className="flex items-center gap-1.5 px-3.5 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white shadow-xs shrink-0 transition-all active:scale-95 text-xs font-semibold cursor-pointer"
-                  title="Avvia Chef Vocale Live a mani libere"
-                >
-                  <ChefHat className="w-5 h-5 text-white" />
-                  <span className="hidden sm:inline">Live</span>
-                </button>
               </form>
             )}
           </div>

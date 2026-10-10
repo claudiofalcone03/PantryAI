@@ -9,7 +9,6 @@ import {
   MicOff,
   Trash2,
   CheckCircle2,
-  XCircle,
   PackagePlus,
   Edit3,
   Snowflake,
@@ -17,7 +16,6 @@ import {
   ShoppingCart,
   Loader2,
   Check,
-  AlertCircle,
   ChefHat,
   PackageOpen,
 } from "lucide-react";
@@ -52,7 +50,8 @@ import { Timestamp, doc, getDoc } from "firebase/firestore";
 interface AssistantChatModalProps {
   isOpen: boolean;
   onClose: () => void;
-  pantryId: string;
+  mode?: "modal" | "docked";
+  pantryId?: string;
   pantryName?: string;
   pantryCategories?: string[];
   products?: Product[];
@@ -61,7 +60,8 @@ interface AssistantChatModalProps {
 export function AssistantChatModal({
   isOpen,
   onClose,
-  pantryId,
+  mode = "modal",
+  pantryId = "",
   pantryName = "Dispensa",
   pantryCategories = [],
   products = [],
@@ -76,14 +76,21 @@ export function AssistantChatModal({
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [applyingActionId, setApplyingActionId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const prefixTextRef = useRef<string>("");
   const inputValueRef = useRef<string>("");
+  const durationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isCancelledRef = useRef<boolean>(false);
+  const autoSendRef = useRef<boolean>(false);
+  const handleSendMessageRef = useRef<((textToSend?: string) => Promise<void>) | null>(null);
 
   // Mantieni il ref del testo allineato
   useEffect(() => {
@@ -160,116 +167,201 @@ export function AssistantChatModal({
     }
   }, [messages, isLoading, isOpen]);
 
-  // Gestione Inizializzazione Riconoscimento Vocale
-  const startSpeechRecognition = useCallback(() => {
-    if (typeof window === "undefined") return;
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
-    // Cattura il testo presente al momento dell'avvio come prefisso fisso
-    prefixTextRef.current = inputValueRef.current.trim();
+  const clearRecordingTimer = () => {
+    if (durationTimerRef.current) {
+      clearInterval(durationTimerRef.current);
+      durationTimerRef.current = null;
+    }
+  };
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  // Pulizia del timer a smontaggio componente
+  useEffect(() => {
+    return () => {
+      clearRecordingTimer();
+    };
+  }, []);
 
-    if (SpeechRecognition) {
-      try {
-        const recognition = new SpeechRecognition();
-        recognition.lang = "it-IT";
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onstart = () => {
-          setIsListening(true);
-        };
-
-        recognition.onresult = (event: any) => {
-          let sessionTranscript = "";
-          for (let i = 0; i < event.results.length; ++i) {
-            sessionTranscript += event.results[i][0].transcript;
-          }
-          sessionTranscript = sessionTranscript.trim();
-          const prefix = prefixTextRef.current;
-          const fullText = prefix
-            ? (sessionTranscript ? `${prefix} ${sessionTranscript}` : prefix)
-            : sessionTranscript;
-          setInputValue(fullText);
-        };
-
-        recognition.onerror = (err: any) => {
-          console.warn("[AssistantChat] Errore SpeechRecognition:", err);
-          setIsListening(false);
-        };
-
-        recognition.onend = () => {
-          setIsListening(false);
-        };
-
-        recognitionRef.current = recognition;
-        recognition.start();
-        return;
-      } catch (e) {
-        console.warn("[AssistantChat] Fallback a MediaRecorder Speech:", e);
+  // Chiusura con tasto Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
       }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  // Pulizia dello stream del microfono
+  const cleanupStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  // Gestione Inizializzazione Registrazione Vocale con MediaRecorder & Gemini
+  const startSpeechRecognition = useCallback(async () => {
+    if (typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      alert("Il microfono non è supportato su questo dispositivo/browser.");
+      return;
     }
 
-    // Fallback con MediaRecorder se SpeechRecognition non è disponibile
-    navigator.mediaDevices
-      ?.getUserMedia({ audio: true })
-      .then((stream) => {
-        const recorder = new MediaRecorder(stream);
+    try {
+      // Reset flag di controllo e cattura testo iniziale
+      isCancelledRef.current = false;
+      autoSendRef.current = false;
+      setRecordingDuration(0);
+      clearRecordingTimer();
+      prefixTextRef.current = inputValueRef.current.trim();
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      let mimeType = "audio/webm;codecs=opus";
+      if (typeof MediaRecorder !== "undefined") {
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          if (MediaRecorder.isTypeSupported("audio/mp4")) {
+            mimeType = "audio/mp4";
+          } else if (MediaRecorder.isTypeSupported("audio/webm")) {
+            mimeType = "audio/webm";
+          } else if (MediaRecorder.isTypeSupported("audio/ogg")) {
+            mimeType = "audio/ogg";
+          } else {
+            mimeType = "";
+          }
+        }
+      }
+
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstart = () => {
+        setIsListening(true);
+        durationTimerRef.current = setInterval(() => {
+          setRecordingDuration((prev) => prev + 1);
+        }, 1000);
+      };
+
+      recorder.onstop = async () => {
+        clearRecordingTimer();
+        cleanupStream();
+        setIsListening(false);
+
+        if (isCancelledRef.current) {
+          audioChunksRef.current = [];
+          return;
+        }
+
+        const recordedMime = recorder.mimeType || mimeType || "audio/webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: recordedMime });
         audioChunksRef.current = [];
-        mediaRecorderRef.current = recorder;
 
-        recorder.ondataavailable = (e) => {
-          if (e.data.size > 0) audioChunksRef.current.push(e.data);
-        };
+        if (audioBlob.size < 200) {
+          console.warn("[AssistantChat] Audio troppo breve per la trascrizione.");
+          return;
+        }
 
-        recorder.onstop = async () => {
-          stream.getTracks().forEach((track) => track.stop());
-          setIsListening(false);
-          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        setIsTranscribing(true);
+        try {
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
           reader.onloadend = async () => {
-            const base64Audio = (reader.result as string)?.split(",")[1];
-            if (base64Audio) {
+            const base64Data = (reader.result as string) || "";
+            if (base64Data) {
               const res = await transcribeAndParseVoiceInput(
-                base64Audio,
-                "audio/webm",
-                "chat_message"
+                base64Data,
+                recordedMime,
+                "chat_message",
+                effectiveCategories,
+                effectiveProducts.map((p) => ({
+                  id: p.productId || "",
+                  name: p.productName,
+                  quantity: p.productQuantity,
+                  category: p.productCategory,
+                  isOpened: !!p.productOpenedAt,
+                  isFrozen: !!p.isFrozen,
+                }))
               );
               if (res.rawTranscript) {
                 const prefix = prefixTextRef.current;
                 const transcript = res.rawTranscript.trim();
-                setInputValue(prefix ? `${prefix} ${transcript}` : transcript);
+                const fullText = prefix ? `${prefix} ${transcript}` : transcript;
+                setInputValue(fullText);
+                inputValueRef.current = fullText;
+
+                if (autoSendRef.current && fullText.trim()) {
+                  handleSendMessageRef.current?.(fullText);
+                }
+              } else {
+                console.warn("[AssistantChat] Nessuna trascrizione ricevuta da Gemini.");
               }
             }
+            setIsTranscribing(false);
           };
-        };
+        } catch (err) {
+          console.error("[AssistantChat] Errore trascrizione vocale:", err);
+          setIsTranscribing(false);
+        }
+      };
 
-        recorder.start();
-        setIsListening(true);
-      })
-      .catch((err) => {
-        console.error("[AssistantChat] Errore accesso microfono:", err);
-        alert("Impossibile accedere al microfono. Verifica i permessi del browser.");
-        setIsListening(false);
-      });
-  }, []);
-
-  const stopSpeechRecognition = useCallback(() => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {}
-      recognitionRef.current = null;
+      recorder.start(250);
+    } catch (err) {
+      console.error("[AssistantChat] Errore accesso microfono:", err);
+      clearRecordingTimer();
+      cleanupStream();
+      setIsListening(false);
+      alert("Impossibile accedere al microfono. Verifica i permessi del browser.");
     }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+  }, [cleanupStream, effectiveCategories, effectiveProducts]);
+
+  const stopSpeechRecognition = useCallback((options?: { autoSend?: boolean }) => {
+    autoSendRef.current = !!options?.autoSend;
+    clearRecordingTimer();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       try {
         mediaRecorderRef.current.stop();
       } catch {}
     }
     setIsListening(false);
   }, []);
+
+  const cancelRecording = useCallback(() => {
+    isCancelledRef.current = true;
+    autoSendRef.current = false;
+    clearRecordingTimer();
+    setRecordingDuration(0);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+    cleanupStream();
+    setInputValue(prefixTextRef.current);
+    inputValueRef.current = prefixTextRef.current;
+    setIsListening(false);
+  }, [cleanupStream]);
+
+  // Se si chiude la modale mentre si sta registrando, cancella
+  useEffect(() => {
+    if (!isOpen && isListening) {
+      cancelRecording();
+    }
+  }, [isOpen, isListening, cancelRecording]);
 
   const toggleListening = () => {
     if (isListening) {
@@ -309,8 +401,8 @@ export function AssistantChatModal({
     }
 
     if (!targetPantryId) {
-      alert("Nessuna dispensa associata trovata. Crea o seleziona una dispensa per procedere.");
-      return;
+      targetPantryId = "default_pantry";
+      setEffectivePantryId(targetPantryId);
     }
 
     setInputValue("");
@@ -367,15 +459,20 @@ export function AssistantChatModal({
       await saveAssistantReply(currentUid, targetPantryId, result.reply, result.proposedActions);
     } catch (err) {
       console.error("[AssistantChat] Errore invio messaggio:", err);
+      setInputValue(text);
       await saveAssistantReply(
         currentUid,
         targetPantryId,
         "Si è verificato un errore durante la risposta. Riprova tra poco."
-      );
+      ).catch(() => {});
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    handleSendMessageRef.current = handleSendMessage;
+  });
 
   // Conferma ed esecuzione di un'azione proposta
   const handleApplyAction = async (msgId: string, action: ProposedAction) => {
@@ -475,62 +572,71 @@ export function AssistantChatModal({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      {/* Container del Pop-up: Bottom sheet su mobile, dialog centrato su desktop */}
-      <div className="relative w-full sm:max-w-xl h-[88vh] sm:h-[680px] bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-zinc-200 dark:border-zinc-800 animate-in slide-in-from-bottom-5 duration-300">
-        {/* Barra di trascinamento touch per mobile */}
-        <div className="sm:hidden flex justify-center pt-2.5 pb-1">
+  const chatContent = (
+    <div
+      className={`relative w-full h-full bg-white dark:bg-zinc-900 flex flex-col overflow-hidden ${
+        mode === "modal"
+          ? "rounded-t-3xl border border-zinc-200 dark:border-zinc-800 shadow-2xl"
+          : "select-text"
+      }`}
+      role={mode === "modal" ? "dialog" : "region"}
+      aria-modal={mode === "modal" ? "true" : undefined}
+      aria-label="Assistente Dispensa AI"
+    >
+      {/* Barra di trascinamento touch per mobile */}
+      {mode === "modal" && (
+        <div className="flex justify-center pt-2.5 pb-1 shrink-0">
           <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-full" />
         </div>
+      )}
 
-        {/* Header della Chat */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/80 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
-              <Sparkles className="w-5 h-5 text-amber-200" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Assistente Dispensa
-                </h2>
-                <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 rounded-full">
-                  AI Copilot
-                </span>
-              </div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate max-w-[200px] sm:max-w-xs">
-                {effectivePantryName || pantryName} • {effectiveProducts.length || products.length} prodotti
-              </p>
-            </div>
+      {/* Header della Chat */}
+      <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/90 backdrop-blur shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 via-teal-500 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+            <Sparkles className="w-5 h-5 text-amber-200" />
           </div>
-
-          <div className="flex items-center gap-1">
-            {messages.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClearChat}
-                title="Cancella cronologia chat"
-                aria-label="Cancella cronologia chat"
-                className="p-2 rounded-xl text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              title="Chiudi"
-              aria-label="Chiudi chat"
-              className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                Assistente Dispensa
+              </h2>
+              <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 rounded-full shrink-0">
+                {mode === "docked" ? "Split View" : "AI Copilot"}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate max-w-[200px] sm:max-w-xs">
+              {effectivePantryName || pantryName} • {effectiveProducts.length || products.length} prodotti
+            </p>
           </div>
         </div>
 
-        {/* Area Messaggi */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex items-center gap-1 shrink-0">
+          {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearChat}
+              title="Cancella cronologia chat"
+              aria-label="Cancella cronologia chat"
+              className="p-2 rounded-xl text-zinc-400 hover:text-red-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            title={mode === "docked" ? "Chiudi pannello split view" : "Chiudi"}
+            aria-label="Chiudi chat"
+            className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+        {/* Area Messaggi: Scorrimento autonomo indipendente */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && !isLoading && (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
               <div className="w-16 h-16 rounded-3xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm">
@@ -715,33 +821,77 @@ export function AssistantChatModal({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Feedback Registrazione Vocale Attiva */}
-        {isListening && (
-          <div className="px-4 py-2.5 bg-rose-50 dark:bg-rose-950/40 border-t border-rose-200 dark:border-rose-900/60 flex items-center justify-between text-xs text-rose-700 dark:text-rose-300 animate-in fade-in duration-150">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
-              <span className="font-semibold truncate">Ascolto vocale attivo: parla pure...</span>
+        {/* Banner Trascrizione in Corso */}
+        {isTranscribing && (
+          <div className="px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 border-t border-emerald-200 dark:border-emerald-800/80 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300 animate-in fade-in duration-150 shrink-0">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="font-semibold">Trascrizione con IA in corso...</span>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[11px] text-emerald-600/80 dark:text-emerald-400">Gemini Voice</span>
+          </div>
+        )}
+
+        {/* Banner Registrazione Vocale Attiva con Timer, Onde e Controlli Rapidi */}
+        {isListening && (
+          <div className="px-4 py-3 bg-rose-50 dark:bg-rose-950/40 border-t border-rose-200 dark:border-rose-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-rose-800 dark:text-rose-200 animate-in fade-in duration-150 shrink-0">
+            {/* Visualizzazione Registrazione & Timer & Onde */}
+            <div className="flex items-center gap-3">
+              {/* Pallino pulsante */}
+              <div className="relative flex items-center justify-center shrink-0">
+                <span className="w-3.5 h-3.5 rounded-full bg-rose-500 animate-ping absolute" />
+                <span className="w-3 h-3 rounded-full bg-rose-600 relative" />
+              </div>
+
+              {/* Timer Durata */}
+              <span className="font-mono font-bold text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/60 px-2 py-0.5 rounded-md tracking-wider">
+                {formatDuration(recordingDuration)}
+              </span>
+
+              {/* Onde sonore animate */}
+              <div className="flex items-center gap-1 h-4">
+                <span className="w-1 bg-rose-500 rounded-full animate-pulse h-3" />
+                <span className="w-1 bg-rose-600 rounded-full animate-bounce h-4" />
+                <span className="w-1 bg-rose-500 rounded-full animate-pulse h-2" />
+                <span className="w-1 bg-rose-600 rounded-full animate-bounce h-3.5" />
+              </div>
+
+              <span className="font-medium truncate text-rose-700 dark:text-rose-300">
+                Registrazione in corso... parla pure
+              </span>
+            </div>
+
+            {/* Pulsanti di Azione: Annulla, Ferma e Trascrivi, Invia Subito */}
+            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
               <button
                 type="button"
-                onClick={stopSpeechRecognition}
-                className="text-xs px-2.5 py-1 rounded-lg bg-zinc-200/70 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 font-medium transition-colors"
+                onClick={cancelRecording}
+                className="px-2.5 py-1.5 rounded-xl text-zinc-600 dark:text-zinc-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 font-medium transition-colors inline-flex items-center gap-1"
+                title="Annulla registrazione senza salvare"
               >
-                Ferma
+                <X className="w-3.5 h-3.5" />
+                Annulla
               </button>
+
+              <button
+                type="button"
+                onClick={() => stopSpeechRecognition()}
+                className="px-3 py-1.5 rounded-xl bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold transition-colors inline-flex items-center gap-1.5 shadow-xs"
+                title="Ferma e inserisci trascrizione nel testo per revisione"
+              >
+                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                Ferma e trascrivi
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
-                  const toSend = inputValue.trim();
-                  stopSpeechRecognition();
-                  if (toSend) {
-                    handleSendMessage(toSend);
-                  }
+                  stopSpeechRecognition({ autoSend: true });
                 }}
-                disabled={!inputValue.trim()}
-                className="text-xs px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold transition-colors disabled:opacity-40 shadow-sm"
+                className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold transition-all shadow-sm shadow-rose-600/30 active:scale-95 inline-flex items-center gap-1.5"
+                title="Trascrivi e invia subito all'assistente"
               >
+                <Send className="w-3.5 h-3.5" />
                 Invia subito
               </button>
             </div>
@@ -749,7 +899,7 @@ export function AssistantChatModal({
         )}
 
         {/* Input Bar con Digitazione e Microfono Integrato */}
-        <div className="p-3 sm:p-4 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <div className="p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -765,17 +915,21 @@ export function AssistantChatModal({
                 placeholder={
                   isListening
                     ? "In ascolto... Parla ora"
+                    : isTranscribing
+                    ? "Trascrizione con IA in corso..."
                     : "Chiedi o modifica la dispensa..."
                 }
-                className="w-full pl-4 pr-11 py-3 text-sm rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/80 placeholder-zinc-400 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-inner"
+                disabled={isTranscribing}
+                className="w-full pl-4 pr-11 py-3 text-sm rounded-2xl border border-zinc-200 dark:border-zinc-700/80 bg-zinc-50 dark:bg-zinc-800/80 placeholder-zinc-400 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all shadow-inner disabled:opacity-70"
               />
 
               {/* Microfono Integrato nel Campo di Input */}
               <button
                 type="button"
                 onClick={toggleListening}
-                title={isListening ? "Ferma registrazione vocale" : "Dettatura vocale"}
-                aria-label={isListening ? "Ferma registrazione vocale" : "Dettatura vocale"}
+                disabled={isTranscribing}
+                title={isListening ? "Ferma registrazione vocale" : "Registrazione vocale"}
+                aria-label={isListening ? "Ferma registrazione vocale" : "Registrazione vocale"}
                 className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all ${
                   isListening
                     ? "bg-rose-500 text-white shadow-md shadow-rose-500/30 scale-105 animate-pulse"
@@ -793,7 +947,7 @@ export function AssistantChatModal({
             {/* Pulsante Invio */}
             <button
               type="submit"
-              disabled={!inputValue.trim() || isLoading}
+              disabled={!inputValue.trim() || isLoading || isTranscribing}
               aria-label="Invia messaggio"
               className="p-3 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-emerald-500/20 active:scale-95 transition-all shrink-0"
             >
@@ -805,6 +959,22 @@ export function AssistantChatModal({
             </button>
           </form>
         </div>
+      </div>
+  );
+
+  if (mode === "docked") {
+    return chatContent;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full h-[88vh] animate-in slide-in-from-bottom-5 duration-300 flex flex-col">
+        {chatContent}
       </div>
     </div>
   );

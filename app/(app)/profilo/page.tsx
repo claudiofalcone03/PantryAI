@@ -11,7 +11,7 @@ import Image from "next/image";
 import type { UserProfile, UserNotificationPreferences } from "@/types/firestore/userProfileType";
 import type { Pantry } from "@/types/firestore/pantryType";
 import { getUserPantries, leavePantry, createPantry, joinPantryWithCode, setCurrentPantry } from "@/lib/firestore/pantries";
-import { updateNotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES, ALL_APP_SCREENS, DEFAULT_NAV_TABS } from "@/lib/firestore/userProfile";
+import { updateNotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES, ALL_APP_SCREENS, DEFAULT_NAV_TABS, DEFAULT_DESKTOP_NAV_TABS } from "@/lib/firestore/userProfile";
 import { requestAndRegisterFcmToken, disablePushNotifications, getNotificationPermissionState } from "@/lib/notifications/fcmClient";
 import { Skeleton, PantryCardSkeleton, NavCustomizationPopup } from "@/components";
 
@@ -36,6 +36,7 @@ export default function ProfilePage() {
 
 	// Stati per personalizzazione barra di navigazione
 	const [navTabs, setNavTabs] = useState<string[]>(DEFAULT_NAV_TABS);
+	const [desktopNavTabs, setDesktopNavTabs] = useState<string[]>(DEFAULT_DESKTOP_NAV_TABS);
 	const [isNavPopupOpen, setIsNavPopupOpen] = useState<boolean>(false);
 
 	useEffect(() => {
@@ -48,6 +49,7 @@ export default function ProfilePage() {
 				let pushActive = false;
 				let prefs = DEFAULT_NOTIFICATION_PREFERENCES;
 				let userTabs = DEFAULT_NAV_TABS;
+				let userDesktopTabs = DEFAULT_DESKTOP_NAV_TABS;
 
 				try {
 					const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -75,6 +77,18 @@ export default function ProfilePage() {
 								} catch {}
 							}
 						}
+
+						if (data.userProfileDesktopNavTabs && Array.isArray(data.userProfileDesktopNavTabs) && data.userProfileDesktopNavTabs.length > 0) {
+							userDesktopTabs = data.userProfileDesktopNavTabs;
+						} else {
+							const localDesktopTabs = typeof window !== "undefined" ? localStorage.getItem("user_desktop_nav_tabs") : null;
+							if (localDesktopTabs) {
+								try {
+									const parsed = JSON.parse(localDesktopTabs);
+									if (Array.isArray(parsed) && parsed.length > 0) userDesktopTabs = parsed;
+								} catch {}
+							}
+						}
 					}
 
 					const userPantries = await getUserPantries(user.uid); //Funzione importata 
@@ -93,6 +107,7 @@ export default function ProfilePage() {
 				setPushEnabled(pushActive);
 				setNotificationPrefs(prefs);
 				setNavTabs(userTabs);
+				setDesktopNavTabs(userDesktopTabs);
 				setLoading(false);
 			} else {
 				setLoading(false);
@@ -259,26 +274,33 @@ export default function ProfilePage() {
 
 	if (loading) {
 		return (
-			<div className="flex flex-col min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
-				<header className="sticky top-0 z-10 px-4 py-6 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-					<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Impostazioni</h1>
-				</header>
-				<main className="flex-1 px-4 py-6 max-w-md mx-auto w-full">
-					<div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-gray-200 dark:border-zinc-800 mb-8 flex flex-col items-center">
-						<Skeleton className="w-24 h-24 rounded-full mb-4" />
-						<Skeleton className="h-6 w-32 mb-1" />
-						<Skeleton className="h-4 w-48" />
+			<div className="flex-1 flex flex-col min-h-0 h-full max-h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+				<header className="px-4 py-5 border-b border-zinc-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md shrink-0">
+					<div className="max-w-6xl mx-auto flex items-center justify-between">
+						<Skeleton className="h-8 w-48 rounded-xl" />
+						<Skeleton className="h-6 w-24 rounded-full" />
 					</div>
-					<div className="space-y-4">
-						<Skeleton className="h-14 w-full rounded-2xl" />
-						<div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 overflow-hidden">
-							<div className="p-4 border-b border-gray-200 dark:border-zinc-800 flex items-center space-x-3 bg-gray-50 dark:bg-zinc-800/50">
-								<Skeleton className="w-5 h-5 rounded-full" />
-								<Skeleton className="h-5 w-32" />
+				</header>
+				<main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 w-full max-w-6xl mx-auto">
+					<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+						<div className="lg:col-span-4 space-y-4">
+							<div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xs border border-zinc-200 dark:border-zinc-800 flex flex-col items-center">
+								<Skeleton className="w-24 h-24 rounded-full mb-4" />
+								<Skeleton className="h-6 w-36 mb-1" />
+								<Skeleton className="h-4 w-48" />
 							</div>
-							<div className="p-4">
+							<Skeleton className="h-14 w-full rounded-2xl" />
+							<Skeleton className="h-14 w-full rounded-2xl" />
+						</div>
+						<div className="lg:col-span-8 space-y-6">
+							<div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
+								<Skeleton className="h-6 w-40" />
 								<PantryCardSkeleton />
 								<PantryCardSkeleton />
+							</div>
+							<div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 space-y-4">
+								<Skeleton className="h-6 w-48" />
+								<Skeleton className="h-16 w-full rounded-xl" />
 							</div>
 						</div>
 					</div>
@@ -287,389 +309,505 @@ export default function ProfilePage() {
 		);
 	}
 
+	const currentPantryObj = pantries.find((p) => p.pantryId === userData?.currentPantryId);
+
 	return (
-		<div className="flex flex-col min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
-			<header className="sticky top-0 z-10 px-4 py-6 border-b border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-				<h1 className="text-2xl font-bold text-gray-900 dark:text-white">Impostazioni</h1>
-			</header>
-
-			<main className="flex-1 px-4 py-6 max-w-md mx-auto w-full">
-
-				<div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-sm border border-gray-200 dark:border-zinc-800 mb-8">
-					<div className="flex flex-col items-center">
-						<div className="w-24 h-24 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4 overflow-hidden relative">
-							{userData?.photoURL ? (
-								<Image
-									src={userData.photoURL}
-									alt="Foto profilo"
-									fill
-									className="object-cover"
-									referrerPolicy="no-referrer"
-								/>
-							) : (
-								<User className="w-12 h-12 text-blue-600 dark:text-blue-400" />
-							)}
+		<div className="flex-1 flex flex-col min-h-0 h-full max-h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+			{/* Mobile TopBar */}
+			<div className="md:hidden shrink-0">
+				<header className="sticky top-0 z-10 px-4 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md flex items-center justify-between">
+					<div className="flex items-center gap-2.5">
+						<div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
+							<Settings className="w-4 h-4" />
 						</div>
+						<h1 className="text-lg font-bold">Impostazioni</h1>
+					</div>
+					<span className="text-xs px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold border border-zinc-200 dark:border-zinc-700">
+						{pantries.length} {pantries.length === 1 ? "dispensa" : "dispense"}
+					</span>
+				</header>
+			</div>
 
-						<h2 className="text-xl font-semibold text-gray-900 dark:text-white text-center">
-							{userData ? `${userData.name}`.trim() : "Caricamento..."}
-						</h2>
-
-						<p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-							{userData?.email}
+			{/* Desktop Header - PERMANENTEMENTE ANCORATO: shrink-0 */}
+			<header className="hidden md:flex items-center justify-between py-4 px-6 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0 z-20">
+				<div className="flex items-center gap-3">
+					<div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center shrink-0 border border-zinc-200 dark:border-zinc-700">
+						<Settings className="w-5 h-5" />
+					</div>
+					<div>
+						<div className="flex items-center gap-2.5">
+							<h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+								Impostazioni & Profilo
+							</h1>
+							<span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
+								{pantries.length} {pantries.length === 1 ? "dispensa attiva" : "dispense attive"}
+							</span>
+						</div>
+						<p className="text-xs text-zinc-500 dark:text-zinc-400">
+							Gestisci account, dispense condivise, notifiche push di scadenza e impostazioni dell&apos;interfaccia.
 						</p>
 					</div>
 				</div>
+			</header>
 
-				<div className="space-y-4">
-					<button
-						className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-2xl border border-gray-200 dark:border-zinc-800 transition-colors"
-						onClick={() => {/*Funzione modifica profilo*/ }}
-					>
-						<div className="flex items-center space-x-3">
-							<Pencil className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-							<span className="font-medium text-gray-900 dark:text-white">Modifica dati profilo  (Prossimamente) </span>
-						</div>
-					</button>
+			{/* Main Content - UNICA AREA CHE SCORRE */}
+			<main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 w-full max-w-6xl mx-auto">
+				{/* Layout Dashboard a 2 Colonne su Desktop */}
+				<div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-24">
+					{/* COLONNA SINISTRA: Profilo & Azioni Account */}
+					<div className="lg:col-span-4 space-y-4">
+						{/* Card Profilo Utente */}
+						<div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xs border border-zinc-200/90 dark:border-zinc-800/90 text-center relative overflow-hidden">
+							<div className="w-24 h-24 mx-auto bg-emerald-100 dark:bg-emerald-950/40 rounded-full flex items-center justify-center mb-4 overflow-hidden relative border-2 border-emerald-200 dark:border-emerald-800/60 shadow-xs">
+								{userData?.photoURL ? (
+									<Image
+										src={userData.photoURL}
+										alt="Foto profilo"
+										fill
+										className="object-cover"
+										referrerPolicy="no-referrer"
+									/>
+								) : (
+									<User className="w-12 h-12 text-emerald-600 dark:text-emerald-400" />
+								)}
+							</div>
 
-					<div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 overflow-hidden">
-						<div className="p-4 border-b border-gray-200 dark:border-zinc-800 flex items-center space-x-3 bg-gray-50 dark:bg-zinc-800/50">
-							<Layers className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-							<span className="font-medium text-gray-900 dark:text-white">Le tue dispense</span>
-						</div>
-						<div className="divide-y divide-gray-200 dark:divide-zinc-800">
-							{pantries.length === 0 ? (
-								<div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
-									Non sei ancora membro di nessuna dispensa.
+							<h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 truncate">
+								{userData ? `${userData.name}`.trim() : "Caricamento..."}
+							</h2>
+
+							<p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+								{userData?.email}
+							</p>
+
+							{/* Badge Dispensa Selezionata */}
+							{currentPantryObj && (
+								<div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-center gap-1.5">
+									<span className="text-[11px] text-zinc-500">Dispensa attuale:</span>
+									<span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60">
+										{currentPantryObj.pantryName}
+									</span>
 								</div>
-							) : (
-								pantries.map((pantry) => {
-									const userRole = pantry.pantryMembers?.find(m => m.memberId === auth.currentUser?.uid)?.memberRole || 'membro';
-									return (
-										<div key={pantry.pantryId} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50 dark:hover:bg-zinc-800/50 transition-colors">
-											<div className="flex-1">
-												<h3 className="font-medium text-gray-900 dark:text-white">{pantry.pantryName}</h3>
-												<div className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
-													<span className="capitalize">{userRole}</span>
-													<span>•</span>
-													<span>Codice: {pantry.pantryInviteCode}</span>
-												</div>
-											</div>
-											<div className="flex items-center gap-2">
-												<button
-													onClick={() => handleSetCurrentPantry(pantry.pantryId)}
-													className={`p-2 rounded-lg transition-colors ${userData?.currentPantryId === pantry.pantryId ? "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30" : "text-gray-400 hover:text-green-600 dark:text-gray-500 dark:hover:text-green-400 bg-gray-100 hover:bg-green-50 dark:bg-zinc-800 dark:hover:bg-green-900/30"}`}
-													title={userData?.currentPantryId === pantry.pantryId ? "Dispensa corrente" : "Imposta come dispensa corrente"}
-												>
-													<CheckCircle className="w-4 h-4" />
-												</button>
-												<button
-													onClick={() => router.push(`/dispense/${pantry.pantryId}/impostazioni`)}
-													className="p-2 text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400 bg-gray-100 hover:bg-purple-50 dark:bg-zinc-800 dark:hover:bg-purple-900/30 rounded-lg transition-colors"
-													title="Impostazioni dispensa"
-												>
-													<Settings className="w-4 h-4" />
-												</button>
-												<button
-													onClick={() => handleCopyCode(pantry.pantryInviteCode)}
-													className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 bg-gray-100 hover:bg-blue-50 dark:bg-zinc-800 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-													title="Copia codice di accesso"
-												>
-													<Copy className="w-4 h-4" />
-												</button>
-												<button
-													onClick={() => handleLeavePantry(pantry.pantryId)}
-													className="p-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 bg-gray-100 hover:bg-red-50 dark:bg-zinc-800 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-													title="Abbandona dispensa"
-												>
-													<DoorOpen className="w-4 h-4" />
-												</button>
-											</div>
-										</div>
-									);
-								})
 							)}
 						</div>
-						<div className="p-4 border-t border-gray-200 dark:border-zinc-800 bg-gray-50 dark:bg-zinc-800/50 flex flex-col sm:flex-row gap-3">
+
+						{/* Azioni Account & Scorciatoie */}
+						<div className="bg-white dark:bg-zinc-900 rounded-3xl p-4 shadow-2xs border border-zinc-200/90 dark:border-zinc-800/90 space-y-2">
 							<button
-								onClick={handleCreatePantry}
-								className="flex-1 flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-xl transition-colors font-medium text-sm"
+								className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors text-left"
+								onClick={() => {}}
 							>
-								<Plus className="w-4 h-4" />
-								<span>Crea dispensa</span>
+								<div className="flex items-center space-x-3">
+									<Pencil className="w-4 h-4 text-zinc-400" />
+									<span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+										Modifica dati profilo (Prossimamente)
+									</span>
+								</div>
 							</button>
+
 							<button
-								onClick={handleJoinPantry}
-								className="flex-1 flex items-center justify-center space-x-2 bg-white dark:bg-zinc-700 hover:bg-gray-50 dark:hover:bg-zinc-600 text-gray-900 dark:text-white border border-gray-200 dark:border-zinc-600 p-3 rounded-xl transition-colors font-medium text-sm"
+								onClick={() => router.push("/profilo/sviluppo")}
+								className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-all text-left group"
 							>
-								<UserPlus className="w-4 h-4" />
-								<span>Unisciti con codice</span>
+								<div className="flex items-center space-x-3">
+									<Code2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+									<div>
+										<span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+											Strumenti Sviluppatore & MCP
+										</span>
+										<span className="ml-1.5 text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+											Server AI
+										</span>
+									</div>
+								</div>
+								<ChevronRight className="w-4 h-4 text-zinc-400 group-hover:text-emerald-600 transition-colors" />
 							</button>
+
+							<button
+								className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors text-left"
+								onClick={() => {}}
+							>
+								<div className="flex items-center space-x-3">
+									<FileDown className="w-4 h-4 text-zinc-400" />
+									<span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+										Esporta dati (Prossimamente)
+									</span>
+								</div>
+							</button>
+
+							<div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-1.5">
+								<button
+									onClick={handleLogout}
+									className="w-full flex items-center justify-between p-3 rounded-2xl bg-rose-50/60 hover:bg-rose-100/70 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/40 transition-colors cursor-pointer text-left"
+								>
+									<div className="flex items-center space-x-3 text-rose-600 dark:text-rose-400">
+										<LogOut className="w-4 h-4" />
+										<span className="text-xs font-semibold">Disconnetti</span>
+									</div>
+								</button>
+
+								<button
+									className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-rose-50/40 dark:hover:bg-rose-950/10 text-left transition-colors"
+									onClick={() => {}}
+								>
+									<div className="flex items-center space-x-3 text-zinc-400 hover:text-rose-500 text-xs">
+										<Trash className="w-4 h-4" />
+										<span>Elimina account (Prossimamente)</span>
+									</div>
+								</button>
+							</div>
 						</div>
 					</div>
 
-					{/* Card Notifiche Push & Promemoria Scadenze */}
-					<div className="bg-white dark:bg-zinc-900 rounded-2xl border border-gray-200 dark:border-zinc-800 shadow-xs overflow-hidden transition-all">
-						<div className="p-5 border-b border-gray-100 dark:border-zinc-800 flex items-center justify-between">
-							<div className="flex items-center space-x-3">
-								<div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400">
-									<BellRing className="w-5 h-5" />
+					{/* COLONNA DESTRA: Dispense, Notifiche, Navigazione */}
+					<div className="lg:col-span-8 space-y-6">
+						{/* Sezione Le tue Dispense */}
+						<div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-2xs overflow-hidden">
+							<div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+								<div className="flex items-center space-x-3">
+									<div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300">
+										<Layers className="w-5 h-5" />
+									</div>
+									<div>
+										<h2 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100">
+											Le tue dispense
+										</h2>
+										<p className="text-xs text-zinc-500 dark:text-zinc-400">
+											Visualizza, cambia dispensa attiva o gestisci i membri
+										</p>
+									</div>
 								</div>
-								<div>
-									<h2 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2 text-sm sm:text-base">
-										Notifiche Push & Scadenze
-										<span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-											PWA
-										</span>
-									</h2>
-									<p className="text-xs text-gray-500 dark:text-gray-400">
-										Ricevi avvisi automatici quando gli alimenti stanno per scadere.
-									</p>
-								</div>
+							</div>
+
+							<div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+								{pantries.length === 0 ? (
+									<div className="p-8 text-center text-xs text-zinc-500 dark:text-zinc-400">
+										Non sei ancora membro di nessuna dispensa. Creane una o unisciti a una dispensa esistente!
+									</div>
+								) : (
+									pantries.map((pantry) => {
+										const userRole =
+											pantry.pantryMembers?.find((m) => m.memberId === auth.currentUser?.uid)
+												?.memberRole || "membro";
+										const isCurrent = userData?.currentPantryId === pantry.pantryId;
+
+										return (
+											<div
+												key={pantry.pantryId}
+												className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40 transition-colors"
+											>
+												<div className="flex-1 min-w-0">
+													<div className="flex items-center gap-2">
+														<h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 truncate">
+															{pantry.pantryName}
+														</h3>
+														{isCurrent && (
+															<span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 shrink-0">
+																Attiva
+															</span>
+														)}
+													</div>
+													<div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-2 flex-wrap">
+														<span className="capitalize">{userRole}</span>
+														<span>•</span>
+														<span className="font-mono text-[11px]">Codice: {pantry.pantryInviteCode}</span>
+													</div>
+												</div>
+
+												<div className="flex items-center gap-1.5 shrink-0">
+													<button
+														onClick={() => handleSetCurrentPantry(pantry.pantryId)}
+														className={`p-2 rounded-xl transition-all cursor-pointer ${
+															isCurrent
+																? "text-emerald-700 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 shadow-2xs"
+																: "text-zinc-400 hover:text-emerald-600 dark:text-zinc-500 dark:hover:text-emerald-400 bg-zinc-100 hover:bg-emerald-50 dark:bg-zinc-800 dark:hover:bg-emerald-950/30 border border-zinc-200 dark:border-zinc-700"
+														}`}
+														title={isCurrent ? "Dispensa corrente attiva" : "Imposta come dispensa corrente"}
+													>
+														<CheckCircle className="w-4 h-4" />
+													</button>
+													<button
+														onClick={() => router.push(`/dispense/${pantry.pantryId}/impostazioni`)}
+														className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-xl transition-colors border border-zinc-200 dark:border-zinc-700 cursor-pointer"
+														title="Impostazioni dispensa"
+													>
+														<Settings className="w-4 h-4" />
+													</button>
+													<button
+														onClick={() => handleCopyCode(pantry.pantryInviteCode)}
+														className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-xl transition-colors border border-zinc-200 dark:border-zinc-700 cursor-pointer"
+														title="Copia codice di accesso"
+													>
+														<Copy className="w-4 h-4" />
+													</button>
+													<button
+														onClick={() => handleLeavePantry(pantry.pantryId)}
+														className="p-2 text-zinc-400 hover:text-rose-600 dark:text-zinc-500 dark:hover:text-rose-400 bg-zinc-100 hover:bg-rose-50 dark:bg-zinc-800 dark:hover:bg-rose-950/30 rounded-xl transition-colors border border-zinc-200 dark:border-zinc-700 cursor-pointer"
+														title="Abbandona dispensa"
+													>
+														<DoorOpen className="w-4 h-4" />
+													</button>
+												</div>
+											</div>
+										);
+									})
+								)}
+							</div>
+
+							<div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30 flex flex-col sm:flex-row gap-3">
+								<button
+									onClick={handleCreatePantry}
+									className="flex-1 flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl transition-colors font-semibold text-xs shadow-xs cursor-pointer"
+								>
+									<Plus className="w-4 h-4" />
+									<span>Crea nuova dispensa</span>
+								</button>
+								<button
+									onClick={handleJoinPantry}
+									className="flex-1 flex items-center justify-center space-x-2 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 p-2.5 rounded-xl transition-colors font-semibold text-xs cursor-pointer"
+								>
+									<UserPlus className="w-4 h-4" />
+									<span>Unisciti con codice</span>
+								</button>
 							</div>
 						</div>
 
-						<div className="p-5 space-y-4">
-							{/* Toggle attivazione notifiche */}
-							<div className="flex items-center justify-between p-3.5 bg-gray-50 dark:bg-zinc-800/60 rounded-xl border border-gray-200/70 dark:border-zinc-700/60">
+						{/* Card Notifiche Push & Promemoria Scadenze */}
+						<div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-2xs overflow-hidden">
+							<div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
 								<div className="flex items-center space-x-3">
-									{pushEnabled ? (
-										<Bell className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
-									) : (
-										<BellOff className="w-5 h-5 text-gray-400 shrink-0" />
-									)}
+									<div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-600 dark:text-amber-400">
+										<BellRing className="w-5 h-5" />
+									</div>
 									<div>
-										<p className="text-xs font-semibold text-gray-900 dark:text-white">
-											{pushEnabled ? "Notifiche Push Attive" : "Notifiche Push Disattivate"}
+										<h2 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+											<span>Notifiche Push & Scadenze</span>
+											<span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+												PWA
+											</span>
+										</h2>
+										<p className="text-xs text-zinc-500 dark:text-zinc-400">
+											Ricevi avvisi automatici quando gli alimenti stanno per scadere
 										</p>
-										<p className="text-[11px] text-gray-500 dark:text-gray-400">
-											{pushPermission === "denied"
-												? "Permesso bloccato nel browser: sbloccalo dalle impostazioni sito."
-												: pushEnabled
-												? "Questo dispositivo riceverà gli avvisi per la dispensa."
-												: "Attiva per ricevere promemoria anche ad app chiusa."}
+									</div>
+								</div>
+							</div>
+
+							<div className="p-5 space-y-4">
+								{/* Toggle attivazione notifiche */}
+								<div className="flex items-center justify-between p-3.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60">
+									<div className="flex items-center space-x-3">
+										{pushEnabled ? (
+											<Bell className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+										) : (
+											<BellOff className="w-5 h-5 text-zinc-400 shrink-0" />
+										)}
+										<div>
+											<p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+												{pushEnabled ? "Notifiche Push Attive" : "Notifiche Push Disattivate"}
+											</p>
+											<p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+												{pushPermission === "denied"
+													? "Permesso bloccato nel browser: sbloccalo dalle impostazioni sito."
+													: pushEnabled
+													? "Questo dispositivo riceverà gli avvisi per la dispensa."
+													: "Attiva per ricevere promemoria anche ad app chiusa."}
+											</p>
+										</div>
+									</div>
+
+									<button
+										onClick={handleTogglePushNotifications}
+										disabled={pushLoading || pushPermission === "denied"}
+										className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+											pushEnabled
+												? "bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50"
+												: "bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
+										} disabled:opacity-50`}
+									>
+										{pushLoading ? (
+											<RefreshCw className="w-3.5 h-3.5 animate-spin" />
+										) : pushEnabled ? (
+											<span>Disattiva</span>
+										) : (
+											<span>Attiva</span>
+										)}
+									</button>
+								</div>
+
+								{/* Preferenze avanzate (quando le notifiche sono attive) */}
+								{pushEnabled && (
+									<div className="space-y-3 pt-1">
+										{/* Soglia giorni anticipo */}
+										<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-amber-50/40 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-2xl">
+											<div>
+												<span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">
+													Preavviso Scadenza Alimenti
+												</span>
+												<span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+													Quanti giorni prima vuoi essere avvisato?
+												</span>
+											</div>
+
+											<div className="flex items-center gap-1">
+												{[
+													{ days: 0, label: "Oggi" },
+													{ days: 1, label: "1 gg" },
+													{ days: 2, label: "2 gg" },
+													{ days: 3, label: "3 gg" },
+												].map(({ days, label }) => (
+													<button
+														key={days}
+														onClick={() => handleUpdateNotificationPrefs("notifyOnExpiryDays", days)}
+														className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+															notificationPrefs.notifyOnExpiryDays === days
+																? "bg-amber-600 text-white shadow-xs"
+																: "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+														}`}
+													>
+														{label}
+													</button>
+												))}
+											</div>
+										</div>
+
+										{/* Toggle Cibi Aperti */}
+										<label className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-800/40 rounded-2xl border border-zinc-200/60 dark:border-zinc-700/40 cursor-pointer">
+											<div>
+												<span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 block">
+													Avviso Cibi Aperti (Shelf-Life)
+												</span>
+												<span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+													Avvisami quando un alimento aperto sta per superare i giorni di consumo consigliati.
+												</span>
+											</div>
+											<input
+												type="checkbox"
+												checked={Boolean(notificationPrefs.notifyOpenedProducts)}
+												onChange={(e) => handleUpdateNotificationPrefs("notifyOpenedProducts", e.target.checked)}
+												className="w-4 h-4 text-emerald-600 rounded-md focus:ring-emerald-500 border-zinc-300 dark:border-zinc-700 shrink-0 ml-3"
+											/>
+										</label>
+
+										{/* Pulsante invio notifica di prova */}
+										<div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+											<button
+												onClick={handleSendTestPush}
+												disabled={testPushLoading}
+												className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+											>
+												{testPushLoading ? (
+													<RefreshCw className="w-3.5 h-3.5 animate-spin" />
+												) : (
+													<Send className="w-3.5 h-3.5" />
+												)}
+												<span>Invia Notifica Push di Prova</span>
+											</button>
+
+											{testPushResult && (
+												<div
+													className={`text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 ${
+														testPushResult.success
+															? "text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/30 border border-emerald-200"
+															: "text-rose-700 bg-rose-50 dark:text-rose-300 dark:bg-rose-950/30 border border-rose-200"
+													}`}
+												>
+													{testPushResult.success ? <Check className="w-3.5 h-3.5" /> : null}
+													<span>{testPushResult.msg}</span>
+												</div>
+											)}
+										</div>
+									</div>
+								)}
+							</div>
+						</div>
+
+						{/* Personalizzazione Barra e Mappa Schermate */}
+						<div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-zinc-200/90 dark:border-zinc-800/90 shadow-2xs space-y-4">
+							<div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
+								<div className="flex items-center space-x-3">
+									<div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
+										<Layout className="w-5 h-5" />
+									</div>
+									<div>
+										<h3 className="font-bold text-zinc-900 dark:text-zinc-100 text-sm">
+											Personalizzazione Navigazione (Mobile & Desktop)
+										</h3>
+										<p className="text-xs text-zinc-500 dark:text-zinc-400">
+											Configura indipendentemente la barra inferiore smartphone e la sidebar desktop
 										</p>
 									</div>
 								</div>
 
 								<button
-									onClick={handleTogglePushNotifications}
-									disabled={pushLoading || pushPermission === "denied"}
-									className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 ${
-										pushEnabled
-											? "bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/30 dark:hover:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-900/50"
-											: "bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
-									} disabled:opacity-50`}
+									onClick={() => setIsNavPopupOpen(true)}
+									className="px-3.5 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold transition-colors cursor-pointer"
 								>
-									{pushLoading ? (
-										<RefreshCw className="w-3.5 h-3.5 animate-spin" />
-									) : pushEnabled ? (
-										<span>Disattiva</span>
-									) : (
-										<span>Attiva</span>
-									)}
+									Personalizza
 								</button>
 							</div>
 
-							{/* Preferenze avanzate (visibili quando le notifiche sono attive) */}
-							{pushEnabled && (
-								<div className="space-y-3 pt-1">
-									{/* Soglia giorni anticipo */}
-									<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-amber-50/40 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-xl">
-										<div>
-											<span className="text-xs font-semibold text-gray-900 dark:text-white block">
-												Preavviso Scadenza Alimenti
-											</span>
-											<span className="text-[11px] text-gray-500 dark:text-gray-400 block">
-												Quanti giorni prima vuoi essere avvisato?
-											</span>
-										</div>
-
-										<div className="flex items-center gap-1">
-											{[
-												{ days: 0, label: "Oggi" },
-												{ days: 1, label: "1 gg" },
-												{ days: 2, label: "2 gg" },
-												{ days: 3, label: "3 gg" },
-											].map(({ days, label }) => (
-												<button
-													key={days}
-													onClick={() => handleUpdateNotificationPrefs("notifyOnExpiryDays", days)}
-													className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-														notificationPrefs.notifyOnExpiryDays === days
-															? "bg-amber-600 text-white shadow-xs"
-															: "bg-white dark:bg-zinc-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-zinc-700"
-													}`}
-												>
-													{label}
-												</button>
-											))}
-										</div>
-									</div>
-
-									{/* Toggle Cibi Aperti */}
-									<label className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-800/40 rounded-xl border border-gray-200/60 dark:border-zinc-700/40 cursor-pointer">
-										<div>
-											<span className="text-xs font-semibold text-gray-900 dark:text-white block">
-												Avviso Cibi Aperti (Shelf-Life)
-											</span>
-											<span className="text-[11px] text-gray-500 dark:text-gray-400 block">
-												Avvisami quando un alimento aperto sta per superare i giorni di consumo consigliati.
-											</span>
-										</div>
-										<input
-											type="checkbox"
-											checked={Boolean(notificationPrefs.notifyOpenedProducts)}
-											onChange={(e) => handleUpdateNotificationPrefs("notifyOpenedProducts", e.target.checked)}
-											className="w-4 h-4 text-amber-600 rounded-md focus:ring-amber-500 border-gray-300 dark:border-zinc-700 shrink-0 ml-3"
-										/>
-									</label>
-
-									{/* Pulsante invio notifica di prova */}
-									<div className="pt-2 border-t border-gray-100 dark:border-zinc-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-										<button
-											onClick={handleSendTestPush}
-											disabled={testPushLoading}
-											className="flex items-center justify-center gap-1.5 py-2 px-3 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-xl transition-colors disabled:opacity-50"
-										>
-											{testPushLoading ? (
-												<RefreshCw className="w-3.5 h-3.5 animate-spin" />
-											) : (
-												<Send className="w-3.5 h-3.5" />
-											)}
-											<span>Invia Notifica Push di Prova</span>
-										</button>
-
-										{testPushResult && (
-											<div
-												className={`text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 ${
-													testPushResult.success
-														? "text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-950/30"
-														: "text-red-700 bg-red-50 dark:text-red-300 dark:bg-red-950/30"
-												}`}
-											>
-												{testPushResult.success ? <Check className="w-3.5 h-3.5" /> : null}
-												<span>{testPushResult.msg}</span>
-											</div>
-										)}
-									</div>
-								</div>
-							)}
-						</div>
-					</div>
-
-					{/* Personalizzazione Barra e Mappa Schermate */}
-					<div className="bg-white dark:bg-zinc-900 rounded-3xl p-5 border border-gray-200 dark:border-zinc-800 shadow-xs space-y-4">
-						<div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-zinc-800">
-							<div className="flex items-center space-x-3">
-								<div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
-									<Layout className="w-5 h-5" />
-								</div>
+							<div className="space-y-3">
+								{/* Voci Mobile */}
 								<div>
-									<h3 className="font-bold text-gray-900 dark:text-white text-sm">
-										Barra di Navigazione & Schermate
-									</h3>
-									<p className="text-xs text-gray-500 dark:text-gray-400">
-										Personalizza quali pagine visualizzare nella barra inferiore
-									</p>
+									<div className="flex items-center justify-between mb-1.5">
+										<span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+											📱 Barra Mobile ({navTabs.length} schermate)
+										</span>
+									</div>
+									<div className="flex flex-wrap items-center gap-1.5">
+										{navTabs.map((tabId) => {
+											const screen = ALL_APP_SCREENS.find((s) => s.id === tabId);
+											if (!screen) return null;
+											return (
+												<span
+													key={tabId}
+													className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 border border-zinc-200/80 dark:border-zinc-700/80"
+												>
+													{screen.name}
+												</span>
+											);
+										})}
+									</div>
+								</div>
+
+								{/* Voci Desktop */}
+								<div>
+									<div className="flex items-center justify-between mb-1.5">
+										<span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+											💻 Sidebar Desktop ({desktopNavTabs.length} schermate)
+										</span>
+									</div>
+									<div className="flex flex-wrap items-center gap-1.5">
+										{desktopNavTabs.map((tabId) => {
+											const screen = ALL_APP_SCREENS.find((s) => s.id === tabId);
+											if (!screen) return null;
+											return (
+												<span
+													key={tabId}
+													className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80"
+												>
+													{screen.name}
+												</span>
+											);
+										})}
+									</div>
 								</div>
 							</div>
 
-							<button
-								onClick={() => setIsNavPopupOpen(true)}
-								className="px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-bold transition-colors cursor-pointer"
-							>
-								Personalizza
-							</button>
-						</div>
-
-						{/* Schermate attualmente attive */}
-						<div className="flex flex-wrap items-center gap-1.5">
-							{navTabs.map((tabId) => {
-								const screen = ALL_APP_SCREENS.find((s) => s.id === tabId);
-								if (!screen) return null;
-								return (
-									<span
-										key={tabId}
-										className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-zinc-700"
-									>
-										{screen.name}
-									</span>
-								);
-							})}
-						</div>
-
-						{/* Collegamento diretto a Piano Pasti */}
-						<div className="pt-2 border-t border-gray-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs">
-							<button
-								onClick={() => router.push("/piano-settimanale")}
-								className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer"
-							>
-								<CalendarDays className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-								<span>Apri Piano Pasti Settimanale →</span>
-							</button>
-							<span className="text-[11px] text-gray-400">
-								Puoi aggiungerlo alla barra tramite &ldquo;Personalizza&rdquo;
-							</span>
-						</div>
-					</div>
-
-					{/* Collegamento Sottopagina Strumenti Sviluppatore & MCP */}
-					<button
-						onClick={() => router.push("/profilo/sviluppo")}
-						className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 hover:bg-purple-50/40 dark:hover:bg-purple-950/20 rounded-2xl border border-gray-200 dark:border-zinc-800 hover:border-purple-300 dark:hover:border-purple-800/60 transition-all group shadow-xs text-left"
-					>
-						<div className="flex items-center space-x-3.5">
-							<div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform shrink-0">
-								<Code2 className="w-5 h-5" />
-							</div>
-							<div>
-								<div className="flex items-center gap-2">
-									<span className="font-semibold text-gray-900 dark:text-white text-sm">
-										Strumenti Sviluppatore & MCP
-									</span>
-									<span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-										Dev
-									</span>
-								</div>
-								<p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-									Server MCP per Antigravity, diagnostica database e cache offline.
-								</p>
+							<div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+								<button
+									onClick={() => router.push("/piano-settimanale")}
+									className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer"
+								>
+									<CalendarDays className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+									<span>Apri Piano Pasti Settimanale →</span>
+								</button>
+								<span className="text-[11px] text-zinc-400">
+									Riconoscimento automatico dispositivo con switch manuale
+								</span>
 							</div>
 						</div>
-						<ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-					</button>
-
-					<button
-						className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 rounded-2xl border border-gray-200 dark:border-zinc-800 transition-colors"
-						onClick={() => {/* Funzione esporta dati in csv o json */ }}
-					>
-						<div className="flex items-center space-x-3">
-							<FileDown className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-							<span className="font-medium text-gray-900 dark:text-white">Esporta dati (Prossimamente)</span>
-						</div>
-					</button>
-
-					<div className="pt-2 mt-2 border-t border-gray-200 dark:border-zinc-800 space-y-4">
-						<button
-							onClick={handleLogout}
-							className="w-full flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-950/40 rounded-2xl border border-red-200 dark:border-red-900/50 transition-colors"
-						>
-							<div className="flex items-center space-x-3 text-red-600 dark:text-red-400">
-								<LogOut className="w-5 h-5" />
-								<span className="font-medium">Disconnetti</span>
-							</div>
-						</button>
-
-						<button
-							className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-2xl border border-gray-200 dark:border-zinc-800 hover:border-red-200 dark:hover:border-red-900/50 transition-colors group"
-							onClick={() => {/* Elimina account invia una mail a me */ }}
-						>
-							<div className="flex items-center space-x-3 text-red-600 dark:text-red-400 opacity-80 group-hover:opacity-100 transition-opacity">
-								<Trash className="w-5 h-5" />
-								<span className="font-medium">Elimina account definitivamente (Prossimamente)</span>
-							</div>
-						</button>
 					</div>
 				</div>
 			</main>
@@ -679,7 +817,11 @@ export default function ProfilePage() {
 				isOpen={isNavPopupOpen}
 				onClose={() => setIsNavPopupOpen(false)}
 				currentTabs={navTabs}
-				onTabsUpdated={(newTabs) => setNavTabs(newTabs)}
+				currentDesktopTabs={desktopNavTabs}
+				onTabsUpdated={(newMobile, newDesktop) => {
+					setNavTabs(newMobile);
+					if (newDesktop) setDesktopNavTabs(newDesktop);
+				}}
 			/>
 		</div>
 	);

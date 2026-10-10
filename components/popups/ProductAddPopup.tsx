@@ -7,6 +7,7 @@ import { addProductToShoppingList } from "@/lib/firestore/shoppingList";
 import { Timestamp } from "firebase/firestore";
 import type { Product } from "@/types/firestore/productType";
 import type { DetectedProductItem } from "@/lib/genkit/genkit";
+import { getFoodIcon, POPULAR_FOOD_EMOJIS } from "@/lib/utils/foodIcons";
 
 interface ProductAddPopupProps {
   isOpen: boolean;
@@ -103,6 +104,8 @@ function ProductAddPopupContent({
   const activeItem = isQueueMode ? productQueue[queueIndex] : null;
 
   const [name, setName] = useState(activeItem ? activeItem.name : initialName || "");
+  const [icon, setIcon] = useState("");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [quantity, setQuantity] = useState(activeItem ? activeItem.quantity : initialQuantity || 1);
   const [expiryDate, setExpiryDate] = useState(activeItem ? activeItem.expiryDate || "" : initialExpiryDate || "");
   const [category, setCategory] = useState(activeItem ? activeItem.category : initialCategory || "");
@@ -120,12 +123,15 @@ function ProductAddPopupContent({
   const advanceQueueOrClose = () => {
     setIsFrozen(false);
     setFrozenMonths(3);
+    setIcon("");
+    setShowEmojiPicker(false);
     if (isQueueMode && queueIndex + 1 < productQueue.length) {
       const nextIdx = queueIndex + 1;
       const nextItem = productQueue[nextIdx];
       setQueueIndex(nextIdx);
       if (nextItem) {
         setName(nextItem.name);
+        setIcon("");
         setCategory(nextItem.category);
         setQuantity(nextItem.quantity || 1);
         setExpiryDate(nextItem.expiryDate || "");
@@ -177,6 +183,7 @@ function ProductAddPopupContent({
 
       const newProduct: Omit<Product, "productId" | "productCreatedAt" | "productUpdatedAt"> = {
         productName: name.trim(),
+        productIcon: icon ? icon.trim() : getFoodIcon(name.trim(), category),
         productQuantity: isShoppingListMode ? 0 : quantity,
         ...(category ? { productCategory: category } : {}),
         shelfLifeDays: shelfLifeDays === "" ? null : Number(shelfLifeDays),
@@ -239,18 +246,59 @@ function ProductAddPopupContent({
 
         {/* Campi Form */}
         <div className="space-y-4 pt-4">
-          {/* Nome */}
+          {/* Nome & Icona */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">
-              Nome Prodotto *
+              Nome Prodotto & Icona *
             </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Es. Latte Intero, Mele, Pasta..."
-              className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="w-10.5 h-10.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-xl shrink-0 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shadow-xs"
+                  title="Scegli icona/emoji per questo alimento"
+                >
+                  {icon || getFoodIcon(name, category)}
+                </button>
+
+                {showEmojiPicker && (
+                  <div className="absolute top-12 left-0 z-50 p-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl w-64 max-h-48 overflow-y-auto grid grid-cols-6 gap-1">
+                    {POPULAR_FOOD_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => {
+                          setIcon(emoji);
+                          setShowEmojiPicker(false);
+                        }}
+                        className="w-9 h-9 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-lg transition-transform active:scale-90"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIcon("");
+                        setShowEmojiPicker(false);
+                      }}
+                      className="col-span-6 mt-1 py-1 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 text-center border-t border-zinc-100 dark:border-zinc-800"
+                    >
+                      Ripristina automatica
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Es. Latte Intero, Mele, Pasta..."
+                className="flex-1 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
           </div>
 
           {/* Categoria & Quantità */}

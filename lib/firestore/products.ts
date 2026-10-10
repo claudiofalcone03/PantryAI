@@ -14,13 +14,45 @@ export async function getProductsByPantry(pantryId: string): Promise<Product[]> 
 
     const querySnapshot = await getDocs(q);
     const products: Product[] = [];
+    const zeroQtyExpiredDocsToClean: string[] = [];
 
     querySnapshot.forEach((docSnap) => {
-      products.push({
+      const data = docSnap.data() as Product;
+      const prod: Product = {
         productId: docSnap.id,
-        ...docSnap.data()
-      } as Product);
+        ...data,
+      };
+
+      // Se la quantità si è ridotta a zero e ha ancora una data di scadenza, rimuovila
+      if (
+        (prod.productQuantity === undefined || prod.productQuantity <= 0) &&
+        (prod.expiryDateProduct || prod.productOpenedExpiryAt || prod.productFrozenExpiryAt)
+      ) {
+        prod.productQuantity = 0;
+        prod.expiryDateProduct = null;
+        prod.productOpenedExpiryAt = null;
+        prod.productFrozenExpiryAt = null;
+        prod.originalExpiryDateBeforeFreeze = null;
+        zeroQtyExpiredDocsToClean.push(docSnap.id);
+      }
+
+      products.push(prod);
     });
+
+    // Pulisci in background su Firestore i documenti con quantità zero che avevano ancora una data di scadenza
+    if (zeroQtyExpiredDocsToClean.length > 0 && typeof window !== "undefined") {
+      Promise.allSettled(
+        zeroQtyExpiredDocsToClean.map((id) =>
+          updateDoc(doc(db, "products", id), {
+            expiryDateProduct: null,
+            productOpenedExpiryAt: null,
+            productFrozenExpiryAt: null,
+            originalExpiryDateBeforeFreeze: null,
+            productUpdatedAt: serverTimestamp(),
+          })
+        )
+      ).catch((err) => console.warn("[PantryAI] Errore pulizia scadenza quantità zero:", err));
+    }
 
     return products;
   }, (res) => res.length);
@@ -32,9 +64,15 @@ export async function addProduct(
 ): Promise<string> {
   return withClientPerformanceTracking('db-latency', 'addProduct', async () => {
     const productRef = doc(collection(db, "products"));
+    const isZeroQuantity = productData.productQuantity !== undefined && productData.productQuantity <= 0;
 
     const newProduct: Product = {
       ...productData,
+      productQuantity: isZeroQuantity ? 0 : productData.productQuantity,
+      // Se la quantità iniziale è zero, rimuovi la data di scadenza
+      expiryDateProduct: isZeroQuantity ? null : (productData.expiryDateProduct || null),
+      productOpenedExpiryAt: isZeroQuantity ? null : (productData.productOpenedExpiryAt || null),
+      productFrozenExpiryAt: isZeroQuantity ? null : (productData.productFrozenExpiryAt || null),
       productId: productRef.id,
       productCreatedAt: serverTimestamp() as Timestamp,
     };
@@ -52,10 +90,19 @@ export async function updateProduct(
   return withClientPerformanceTracking('db-latency', 'updateProduct', async () => {
     const productRef = doc(db, "products", productId);
 
-    const updatedData = {
+    const updatedData: Record<string, any> = {
       ...productData,
       productUpdatedAt: serverTimestamp(),
     };
+
+    // Quando la quantità si riduce a zero, rimuovi la data di scadenza
+    if (productData.productQuantity !== undefined && productData.productQuantity <= 0) {
+      updatedData.productQuantity = 0;
+      updatedData.expiryDateProduct = null;
+      updatedData.productOpenedExpiryAt = null;
+      updatedData.productFrozenExpiryAt = null;
+      updatedData.originalExpiryDateBeforeFreeze = null;
+    }
 
     await updateDoc(productRef, updatedData);
   });
@@ -277,5 +324,29 @@ export async function consumeProduct(
     }
   });
 }
+
+/**
+ * Assegna automaticamente l'icona/emoji migliore a tutti i prodotti di una dispensa
+ * che non hanno ancora un'icona personalizzata definita.
+ */
+export async function autoAssignIconsToPantryProducts(pantryId: string): Promise<number> {
+  const { getFoodIcon } = await import("@/lib/utils/foodIcons");
+  const products = await getProductsByPantry(pantryId);
+  let updatedCount = 0;
+
+  for (const prod of products) {
+    if (!prod.productId) continue;
+    if (!prod.productIcon || prod.productIcon.trim() === "") {
+      const resolvedIcon = getFoodIcon(prod.productName, prod.productCategory);
+      if (resolvedIcon && resolvedIcon !== "🍽️") {
+        await updateProduct(prod.productId, { productIcon: resolvedIcon });
+        updatedCount++;
+      }
+    }
+  }
+
+  return updatedCount;
+}
+
 
 

@@ -18,6 +18,8 @@ import type { Product } from "@/types/firestore/productType";
 import { toggleShareRecipe, deleteRecipe } from "@/lib/firestore/recipes";
 import { auth, db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
+import { findPantryMatch } from "@/lib/utils/ingredientMatcher";
 
 interface RecipeInlineDetailProps {
   recipe: Recipe;
@@ -46,25 +48,23 @@ export function RecipeInlineDetail({
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [cartSuccess, setCartSuccess] = useState(false);
 
-  // Calcolo disponibilità in dispensa per ciascun ingrediente
+  // Calcolo disponibilità in dispensa con matching semantico e fuzzy per ciascun ingrediente
   const pantryMatch = React.useMemo(() => {
-    const pantryNames = pantryProducts.map((p) => p.productName.toLowerCase());
     const ings = recipe.recipeIngredients || [];
 
     const matches: Record<number, boolean> = {};
+    const matchedProducts: Record<number, Product | undefined> = {};
     let inPantryCount = 0;
 
     ings.forEach((ing, idx) => {
-      const nameLower = ing.name.toLowerCase();
-      const has = pantryNames.some(
-        (pName) => pName.includes(nameLower) || nameLower.includes(pName)
-      );
-      matches[idx] = has;
-      if (has) inPantryCount++;
+      const result = findPantryMatch(ing.name, pantryProducts);
+      matches[idx] = result.matched;
+      matchedProducts[idx] = result.matchedProduct;
+      if (result.matched) inPantryCount++;
     });
 
     const percent = ings.length > 0 ? Math.round((inPantryCount / ings.length) * 100) : 0;
-    return { matches, inPantryCount, total: ings.length, percent };
+    return { matches, matchedProducts, inPantryCount, total: ings.length, percent };
   }, [recipe.recipeIngredients, pantryProducts]);
 
   // Pre-spunta automatica degli ingredienti già presenti in dispensa
@@ -181,9 +181,9 @@ export function RecipeInlineDetail({
           </h2>
 
           {recipe.recipeDescription && (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-              {recipe.recipeDescription}
-            </p>
+            <div className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+              <MarkdownRenderer content={recipe.recipeDescription} />
+            </div>
           )}
 
           {/* Metadati */}
@@ -284,7 +284,10 @@ export function RecipeInlineDetail({
                   <div className="flex items-center gap-2 shrink-0">
                     {/* Badge Dispensa */}
                     {inPantry ? (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300/50">
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300/50"
+                        title={pantryMatch.matchedProducts[idx] ? `In dispensa: ${pantryMatch.matchedProducts[idx]?.productName}` : undefined}
+                      >
                         In dispensa
                       </span>
                     ) : (
@@ -343,9 +346,9 @@ export function RecipeInlineDetail({
                 <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-600 text-white font-bold text-xs shrink-0 mt-0.5">
                   {idx + 1}
                 </span>
-                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  {step}
-                </p>
+                <div className="flex-1 min-w-0 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                  <MarkdownRenderer content={step} />
+                </div>
               </div>
             ))}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -45,6 +45,7 @@ import {
   MealSlotCard,
   AssignMealModal,
   WeeklyShoppingReviewModal,
+  MobileProfileButton,
 } from "@/components";
 
 const MEAL_SLOTS: MealSlotType[] = ["colazione", "pranzo", "merenda", "cena"];
@@ -59,6 +60,9 @@ export default function PianoSettimanalePage() {
   const [weekOffset, setWeekOffset] = useState<number>(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
+
+  // Riferimenti per auto-centraggio del giorno
+  const dayButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Piano pasti caricato
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyMealPlan | null>(null);
@@ -92,6 +96,22 @@ export default function PianoSettimanalePage() {
       }
     }
   }, [weekOffset, currentWeekInfo]);
+
+  // Centra automaticamente la vista orizzontale sul giorno selezionato o su oggi
+  useEffect(() => {
+    const targetIdx = selectedDayIndex >= 0 ? selectedDayIndex : currentWeekInfo.days.findIndex((d) => d.isToday);
+    if (targetIdx !== -1 && dayButtonRefs.current[targetIdx]) {
+      const btn = dayButtonRefs.current[targetIdx];
+      const timer = setTimeout(() => {
+        btn?.scrollIntoView({
+          behavior: "smooth",
+          inline: "center",
+          block: "nearest",
+        });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedDayIndex, weekOffset, currentWeekInfo]);
 
   // Caricamento Dati Utente e Dispensa
   useEffect(() => {
@@ -419,17 +439,22 @@ export default function PianoSettimanalePage() {
   const selectedDayPlan = weeklyPlan?.days?.[selectedDayInfo?.dateStr];
 
   return (
-    <div className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 space-y-6">
+    <div className="flex-1 min-h-0 h-full max-h-screen overflow-y-auto w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 space-y-6">
       {/* Top Banner & Titolo */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-2xl bg-primary/10 text-primary">
-              <CalendarDays className="w-6 h-6" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-2xl bg-primary/10 text-primary">
+                <CalendarDays className="w-6 h-6" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+                Piano Pasti Settimanale
+              </h1>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Piano Pasti Settimanale
-            </h1>
+            <div className="md:hidden">
+              <MobileProfileButton />
+            </div>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground">
             Pianifica la tua alimentazione, valorizza gli alimenti in scadenza e genera automaticamente la spesa.
@@ -584,7 +609,7 @@ export default function PianoSettimanalePage() {
       </div>
 
       {/* Tabs dei Giorni (Lunedì - Domenica) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-none scroll-smooth">
         {currentWeekInfo.days.map((day, idx) => {
           const isSelected = selectedDayIndex === idx && viewMode === "day";
           const dayPlan = weeklyPlan?.days?.[day.dateStr];
@@ -598,26 +623,29 @@ export default function PianoSettimanalePage() {
           return (
             <button
               key={day.dateStr}
+              ref={(el) => {
+                dayButtonRefs.current[idx] = el;
+              }}
               type="button"
               onClick={() => {
                 setSelectedDayIndex(idx);
                 setViewMode("day");
               }}
-              className={`flex-1 min-w-[70px] p-2.5 rounded-2xl border text-center transition-all flex flex-col items-center gap-1 relative ${
+              className={`flex-1 min-w-[50px] sm:min-w-[64px] px-1.5 sm:px-2.5 py-2 sm:py-2.5 rounded-2xl border text-center transition-all flex flex-col items-center gap-0.5 sm:gap-1 relative shrink-0 cursor-pointer ${
                 isSelected
                   ? "bg-primary text-primary-foreground border-primary shadow-sm ring-2 ring-primary/20"
                   : "bg-card border-border hover:bg-muted text-foreground"
               }`}
             >
-              <span className={`text-[10px] uppercase font-bold tracking-wider ${isSelected ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+              <span className={`text-[10px] sm:text-xs uppercase font-bold tracking-wider ${isSelected ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                 {day.dayName.slice(0, 3)}
               </span>
-              <span className="text-base font-extrabold">{dayNumber}</span>
+              <span className="text-sm sm:text-base font-extrabold">{dayNumber}</span>
 
               {/* Indicatore oggi */}
               {day.isToday && (
                 <span
-                  className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase ${
+                  className={`text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.2 rounded-full font-bold uppercase ${
                     isSelected
                       ? "bg-white/20 text-white"
                       : "bg-primary/10 text-primary"

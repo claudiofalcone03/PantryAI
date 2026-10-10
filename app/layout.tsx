@@ -33,6 +33,7 @@ export default function RootLayout({
       className="h-full antialiased font-sans"
       suppressHydrationWarning
     >
+      <head />
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <WebVitalTracker />
         {children}

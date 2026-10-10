@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { X, Loader2, Zap, ZapOff, RefreshCw, Camera, Barcode, Sparkles } from "lucide-react";
+import { X, Loader2, Zap, ZapOff, RefreshCw, Camera, Barcode, Sparkles, Upload } from "lucide-react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { fetchProductByBarcode } from "@/lib/api/openFoodFacts";
 import { analyzeImageProducts, type DetectedProductItem } from "@/lib/genkit/genkit";
@@ -162,6 +162,113 @@ export function BarcodeScannerPopup({
     } catch (err) {
       console.error("Errore durante la cattura foto:", err);
       setErrorMessage("Errore durante l'analisi dell'immagine.");
+      setIsAnalyzingAI(false);
+    }
+  };
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset del valore per consentire la riselezione dello stesso file
+    e.target.value = "";
+    if (!file) return;
+
+    try {
+      setIsAnalyzingAI(true);
+      setErrorMessage("");
+      playBeep(880, 80);
+      triggerHaptic(80);
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64Image = reader.result as string;
+          if (scannerRef.current?.isScanning) {
+            try {
+              await scannerRef.current.stop();
+            } catch (stopErr) {
+              console.warn("Avviso stop scanner prima di analisi file:", stopErr);
+            }
+          }
+
+          const aiResult = await analyzeImageProducts(base64Image, pantryCategories);
+          if (aiResult.success && aiResult.products.length > 0) {
+            playBeep(1200, 150);
+            triggerHaptic([100, 50, 100]);
+
+            if (aiResult.products.length === 1 || !onMultipleProductsDetected) {
+              const single = aiResult.products[0];
+              onScanSuccess(
+                single.name,
+                null,
+                single.category,
+                single.expiryDate || undefined,
+                single.shelfLifeDays || null
+              );
+            } else {
+              onMultipleProductsDetected(aiResult.products, base64Image);
+            }
+          } else {
+            setErrorMessage("Nessun alimento identificato nell'immagine. Riprova con un'inquadratura più nitida.");
+            setTimeout(() => {
+              setIsAnalyzingAI(false);
+            }, 2500);
+          }
+        } catch (err) {
+          console.error("Errore analisi file immagine:", err);
+          setErrorMessage("Errore durante l'analisi dell'immagine caricata.");
+          setIsAnalyzingAI(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Errore lettura file immagine:", err);
+      setErrorMessage("Impossibile leggere il file selezionato.");
+      setIsAnalyzingAI(false);
+    }
+  };
+
+  const handleTestSamplePhoto = async () => {
+    setIsAnalyzingAI(true);
+    setErrorMessage("");
+    playBeep(880, 80);
+    try {
+      if (scannerRef.current?.isScanning) {
+        try {
+          await scannerRef.current.stop();
+        } catch {}
+      }
+      const resp = await fetch("/icon-192x192.png");
+      const blob = await resp.blob();
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64Image = reader.result as string;
+        const aiResult = await analyzeImageProducts(base64Image, pantryCategories);
+        if (aiResult.success && aiResult.products.length > 0) {
+          playBeep(1200, 150);
+          triggerHaptic([100, 50, 100]);
+          if (aiResult.products.length === 1 || !onMultipleProductsDetected) {
+            const single = aiResult.products[0];
+            onScanSuccess(
+              single.name,
+              null,
+              single.category,
+              single.expiryDate || undefined,
+              single.shelfLifeDays || null
+            );
+          } else {
+            onMultipleProductsDetected(aiResult.products, base64Image);
+          }
+        } else {
+          setErrorMessage("Nessun alimento identificato nell'immagine di test.");
+          setTimeout(() => setIsAnalyzingAI(false), 2000);
+        }
+      };
+      reader.readAsDataURL(blob);
+    } catch (err) {
+      console.error("Errore test immagine:", err);
+      setErrorMessage("Errore caricamento immagine di test.");
       setIsAnalyzingAI(false);
     }
   };
@@ -382,8 +489,19 @@ export function BarcodeScannerPopup({
         {/* Area Viewfinder Fotocamera */}
         <div className="relative p-4 flex flex-col items-center">
           {errorMessage && (
-            <div className="w-full mb-3 p-3 bg-red-950/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-medium text-center">
-              {errorMessage}
+            <div className="w-full mb-3 p-3 bg-red-950/60 border border-red-800/60 text-red-300 rounded-2xl text-xs font-medium text-center flex flex-col items-center gap-2">
+              <span>{errorMessage}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("photo");
+                  fileInputRef.current?.click();
+                }}
+                className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold border border-zinc-700 transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Carica foto da file / galleria</span>
+              </button>
             </div>
           )}
 
@@ -442,25 +560,66 @@ export function BarcodeScannerPopup({
           {/* Footer Comandi Scatto (in modalità Foto IA) */}
           {mode === "photo" && (
             <div className="w-full mt-4 flex items-center justify-center gap-4">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <button
+                type="button"
+                disabled={isAnalyzingAI}
+                onClick={() => fileInputRef.current?.click()}
+                title="Carica foto da file / galleria"
+                className="p-3.5 rounded-2xl border border-zinc-700 bg-zinc-800/90 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-all shadow-md flex items-center justify-center disabled:opacity-50"
+              >
+                <Upload className="w-5 h-5" />
+              </button>
               <button
                 type="button"
                 disabled={isAnalyzingAI}
                 onClick={handleCapturePhoto}
                 className="group relative flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-tr from-green-600 to-emerald-400 p-1 shadow-lg shadow-green-950/60 active:scale-95 transition-all disabled:opacity-50"
+                title="Scatta foto con fotocamera"
               >
                 <div className="w-full h-full rounded-full border-2 border-white flex items-center justify-center bg-transparent group-hover:bg-white/20 transition-colors">
                   <Camera className="w-6 h-6 text-white" />
                 </div>
               </button>
+              <button
+                type="button"
+                disabled={isAnalyzingAI}
+                onClick={handleTestSamplePhoto}
+                title="Prova subito Gemini Vision con un'immagine campione"
+                className="p-3.5 rounded-2xl border border-emerald-500/50 bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 hover:text-white transition-all shadow-md flex items-center gap-1.5 text-xs font-medium disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>Foto Test</span>
+              </button>
             </div>
           )}
 
           {/* Didascalia di aiuto */}
-          <p className="text-xs text-zinc-400 text-center mt-3">
-            {mode === "barcode"
-              ? "Posiziona il codice a barre all'interno della cornice verde"
-              : "Scatta una foto nitida per far riconoscere il prodotto a Gemini"}
-          </p>
+          <div className="mt-3 text-center">
+            {mode === "barcode" ? (
+              <p className="text-xs text-zinc-400">
+                Posiziona il codice a barre all&apos;interno della cornice, oppure clicca in alto su{" "}
+                <button
+                  type="button"
+                  onClick={() => setMode("photo")}
+                  className="text-emerald-400 underline font-medium hover:text-emerald-300 inline-flex items-center gap-1 ml-0.5"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-300" /> Foto IA
+                </button>{" "}
+                per il riconoscimento alimenti con Gemini Vision.
+              </p>
+            ) : (
+              <p className="text-xs text-zinc-400">
+                Scatta o carica una foto, oppure clicca su <strong>Foto Test</strong> per vedere subito Gemini identificare ingredienti e scadenze.
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>
