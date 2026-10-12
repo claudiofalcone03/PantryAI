@@ -1,7 +1,19 @@
 "use client";
 
 import React from "react";
-import { Coffee, Utensils, Apple, Moon, Trash2, Edit2, Sparkles, Clock, CheckCircle2 } from "lucide-react";
+import {
+  Coffee,
+  Utensils,
+  Apple,
+  Moon,
+  Trash2,
+  Edit2,
+  Sparkles,
+  Clock,
+  CheckCircle2,
+  Check,
+  ArrowRight,
+} from "lucide-react";
 import type { MealSlotItem, MealSlotType } from "@/types/firestore/mealPlanType";
 
 interface MealSlotCardProps {
@@ -10,6 +22,7 @@ interface MealSlotCardProps {
   dayName: string;
   onAssign: () => void;
   onClear: () => void;
+  onOpenDetail?: (item: MealSlotItem) => void;
   onSuggestAi?: () => void;
   isAiSuggesting?: boolean;
 }
@@ -50,16 +63,32 @@ export const MealSlotCard: React.FC<MealSlotCardProps> = ({
   dayName,
   onAssign,
   onClear,
+  onOpenDetail,
   onSuggestAi,
   isAiSuggesting = false,
 }) => {
   const config = SLOT_CONFIG[slotType];
 
+  const handleCardClick = () => {
+    if (slotItem && onOpenDetail) {
+      onOpenDetail(slotItem);
+    }
+  };
+
   return (
     <div
-      className={`rounded-2xl border p-4 transition-all duration-200 shadow-sm flex flex-col justify-between ${
+      onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (slotItem && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onOpenDetail?.(slotItem);
+        }
+      }}
+      role={slotItem ? "button" : undefined}
+      tabIndex={slotItem ? 0 : undefined}
+      className={`rounded-2xl border p-4 transition-all duration-200 shadow-sm flex flex-col justify-between text-left ${
         slotItem
-          ? "bg-card border-border hover:shadow-md"
+          ? "bg-card border-border hover:border-primary/50 hover:shadow-md cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary/20"
           : `${config.bgLight} border-dashed`
       }`}
     >
@@ -78,7 +107,10 @@ export const MealSlotCard: React.FC<MealSlotCardProps> = ({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={onAssign}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAssign();
+              }}
               aria-label={`Modifica ${config.label}`}
               className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
               title="Cambia o modifica piatto"
@@ -87,7 +119,10 @@ export const MealSlotCard: React.FC<MealSlotCardProps> = ({
             </button>
             <button
               type="button"
-              onClick={onClear}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClear();
+              }}
               aria-label={`Rimuovi ${config.label}`}
               className="p-1 rounded-lg text-rose-500/80 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
               title="Svuota slot"
@@ -102,13 +137,19 @@ export const MealSlotCard: React.FC<MealSlotCardProps> = ({
       {slotItem ? (
         <div className="space-y-2 mt-1">
           <div className="flex items-start justify-between gap-2">
-            <h4 className="font-semibold text-sm sm:text-base text-foreground leading-snug line-clamp-2">
+            <h4 className="font-semibold text-sm sm:text-base text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
               {slotItem.recipeTitle}
             </h4>
           </div>
 
-          {/* Badge Salva-Spreco e Tempo */}
+          {/* Badge Salva-Spreco, Tempo e Cucinato */}
           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            {slotItem.isCooked && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-500/30">
+                <Check className="w-3 h-3" /> Cucinato
+              </span>
+            )}
+
             {slotItem.recipeIsAntiWaste && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
                 <span>♻️</span> Salva-Spreco
@@ -154,6 +195,12 @@ export const MealSlotCard: React.FC<MealSlotCardProps> = ({
               </div>
             </div>
           )}
+
+          {/* Footer afforance interattività card */}
+          <div className="pt-2 mt-2 border-t border-border/40 flex items-center justify-between text-[11px] font-medium text-primary">
+            <span>Vedi dettagli e ricetta</span>
+            <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
+          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-4 text-center space-y-2">
@@ -185,3 +232,4 @@ export const MealSlotCard: React.FC<MealSlotCardProps> = ({
     </div>
   );
 };
+

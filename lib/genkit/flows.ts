@@ -1229,6 +1229,77 @@ Rispondi ESCLUSIVAMENTE con un oggetto JSON valido conforme alla seguente strutt
 );
 
 // ============================================================================
+// FLOW: GENERATE MEAL INSTRUCTIONS ON-DEMAND
+// ============================================================================
+export const GenerateMealInstructionsInputSchema = z.object({
+  recipeTitle: z.string(),
+  ingredients: z
+    .array(
+      z.object({
+        name: z.string(),
+        quantity: z.string().optional(),
+      })
+    )
+    .optional()
+    .default([]),
+  notes: z.string().optional(),
+});
+
+export const generateMealInstructionsFlow = ai.defineFlow(
+  {
+    name: "generateMealInstructionsFlow",
+    inputSchema: GenerateMealInstructionsInputSchema,
+    outputSchema: z.object({
+      instructions: z.array(z.string()),
+      prepTimeMinutes: z.number().optional(),
+    }),
+  },
+  async ({ recipeTitle, ingredients = [], notes }) => {
+    const ingredientsText =
+      ingredients.length > 0
+        ? ingredients.map((i) => `- ${i.name}${i.quantity ? ` (${i.quantity})` : ""}`).join("\n")
+        : "Ingredienti standard della ricetta";
+
+    const prompt = `Sei lo Chef AI di PantryAI. Crea il procedimento pratico passo-passo per preparare il seguente piatto pianificato:
+PIATTO: "${recipeTitle}"
+${notes ? `NOTE DELLO CHEF: "${notes}"` : ""}
+
+INGREDIENTI:
+${ingredientsText}
+
+Fornisci tra 3 e 6 passaggi pratici, chiari, cronologici e completi in lingua italiana.
+Rispondi RIGOROSAMENTE con questo formato JSON:
+{
+  "instructions": [
+    "Primo passaggio...",
+    "Secondo passaggio..."
+  ],
+  "prepTimeMinutes": 20
+}`;
+
+    const messages = [{ role: "user" as const, content: [{ text: prompt }] }];
+    const { text } = await ai.generate({ messages });
+    if (!text) return { instructions: [] };
+
+    try {
+      const parsed = extractJsonFromResponse<{ instructions: string[]; prepTimeMinutes?: number }>(text);
+      return {
+        instructions: Array.isArray(parsed.instructions) && parsed.instructions.length > 0
+          ? parsed.instructions
+          : [notes || "Prepara gli ingredienti e procedi alla cottura secondo le indicazioni della ricetta."],
+        prepTimeMinutes: typeof parsed.prepTimeMinutes === "number" ? parsed.prepTimeMinutes : 20,
+      };
+    } catch (err) {
+      console.warn("[generateMealInstructionsFlow] Errore parsing istruzioni:", err);
+      return {
+        instructions: [notes || "Prepara gli ingredienti e procedi alla cottura secondo le indicazioni della ricetta."],
+        prepTimeMinutes: 20,
+      };
+    }
+  }
+);
+
+// ============================================================================
 // MANIFEST FLUSSI GENKIT (Re-export dal modulo manifest client-safe)
 // ============================================================================
 export { GENKIT_FLOWS_MANIFEST, type GenkitFlowMetadata } from "./manifest";

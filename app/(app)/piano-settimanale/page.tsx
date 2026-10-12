@@ -43,6 +43,7 @@ import type {
 } from "@/types/firestore/mealPlanType";
 import {
   MealSlotCard,
+  MealDetailModal,
   AssignMealModal,
   WeeklyShoppingReviewModal,
   MobileProfileButton,
@@ -78,6 +79,12 @@ export default function PianoSettimanalePage() {
     dateStr: string;
     dayName: string;
     slotType: MealSlotType;
+  } | null>(null);
+  const [detailModalTarget, setDetailModalTarget] = useState<{
+    dateStr: string;
+    dayName: string;
+    slotType: MealSlotType;
+    slotItem: MealSlotItem;
   } | null>(null);
 
   // Calcolo estremi settimana corrente rispetto a weekOffset
@@ -715,6 +722,14 @@ export default function PianoSettimanalePage() {
                       slotType
                     )
                   }
+                  onOpenDetail={(item) =>
+                    setDetailModalTarget({
+                      dateStr: selectedDayInfo.dateStr,
+                      dayName: selectedDayInfo.dayName,
+                      slotType,
+                      slotItem: item,
+                    })
+                  }
                   onSuggestAi={() =>
                     handleSuggestAiForSlot(
                       selectedDayInfo.dateStr,
@@ -777,6 +792,14 @@ export default function PianoSettimanalePage() {
                         onClear={() =>
                           handleClearSlot(day.dateStr, day.dayName, slotType)
                         }
+                        onOpenDetail={(item) =>
+                          setDetailModalTarget({
+                            dateStr: day.dateStr,
+                            dayName: day.dayName,
+                            slotType,
+                            slotItem: item,
+                          })
+                        }
                         onSuggestAi={() =>
                           handleSuggestAiForSlot(
                             day.dateStr,
@@ -837,6 +860,82 @@ export default function PianoSettimanalePage() {
         pantryProducts={pantryItems}
         pantryId={currentPantryId}
       />
+
+      {/* Modale Dettaglio Piatto & Ricetta */}
+      {detailModalTarget && (
+        <MealDetailModal
+          isOpen={!!detailModalTarget}
+          onClose={() => setDetailModalTarget(null)}
+          slotType={detailModalTarget.slotType}
+          dayName={detailModalTarget.dayName}
+          dateStr={detailModalTarget.dateStr}
+          slotItem={
+            weeklyPlan?.days?.[detailModalTarget.dateStr]?.slots?.[
+              detailModalTarget.slotType
+            ] || detailModalTarget.slotItem
+          }
+          pantryProducts={pantryItems}
+          pantryId={currentPantryId}
+          userId={currentUser?.uid || ""}
+          onToggleCooked={async () => {
+            const currentItem =
+              weeklyPlan?.days?.[detailModalTarget.dateStr]?.slots?.[
+                detailModalTarget.slotType
+              ] || detailModalTarget.slotItem;
+            const updated: MealSlotItem = {
+              ...currentItem,
+              isCooked: !currentItem.isCooked,
+            };
+            await handleSaveSlot(
+              detailModalTarget.dateStr,
+              detailModalTarget.dayName,
+              detailModalTarget.slotType,
+              updated
+            );
+            setDetailModalTarget((prev) =>
+              prev ? { ...prev, slotItem: updated } : null
+            );
+          }}
+          onUpdateInstructions={async (instructions, prepTimeMinutes) => {
+            const currentItem =
+              weeklyPlan?.days?.[detailModalTarget.dateStr]?.slots?.[
+                detailModalTarget.slotType
+              ] || detailModalTarget.slotItem;
+            const updated: MealSlotItem = {
+              ...currentItem,
+              instructions,
+              recipePrepTimeMinutes:
+                prepTimeMinutes || currentItem.recipePrepTimeMinutes,
+            };
+            await handleSaveSlot(
+              detailModalTarget.dateStr,
+              detailModalTarget.dayName,
+              detailModalTarget.slotType,
+              updated
+            );
+            setDetailModalTarget((prev) =>
+              prev ? { ...prev, slotItem: updated } : null
+            );
+          }}
+          onEdit={() => {
+            const target = {
+              dateStr: detailModalTarget.dateStr,
+              dayName: detailModalTarget.dayName,
+              slotType: detailModalTarget.slotType,
+            };
+            setDetailModalTarget(null);
+            setAssignModalTarget(target);
+          }}
+          onClear={async () => {
+            await handleClearSlot(
+              detailModalTarget.dateStr,
+              detailModalTarget.dayName,
+              detailModalTarget.slotType
+            );
+            setDetailModalTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }

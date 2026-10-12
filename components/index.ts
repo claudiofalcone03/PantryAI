@@ -25,6 +25,7 @@ export { default as SelectItemForChatbot } from "./items/SelectItemForChatbot";
 export { RecipeCarousel } from "./recipes/RecipeCarousel";
 export { RecipeInlineDetail } from "./recipes/RecipeInlineDetail";
 export { MealSlotCard } from "./meal-plan/MealSlotCard";
+export { MealDetailModal } from "./meal-plan/MealDetailModal";
 export { AssignMealModal } from "./meal-plan/AssignMealModal";
 export { WeeklyShoppingReviewModal } from "./meal-plan/WeeklyShoppingReviewModal";
 

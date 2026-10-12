@@ -15,6 +15,22 @@ import {
 import type { Recipe } from "@/types/firestore/recipeType";
 import { withClientPerformanceTracking } from "@/lib/performance-logger.client";
 
+function removeUndefinedFields<T>(obj: T): T {
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map((item) => removeUndefinedFields(item)) as unknown as T;
+  }
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      clean[key] = removeUndefinedFields(value);
+    }
+  }
+  return clean as T;
+}
+
 /**
  * Salva una nuova ricetta per l'utente, e opzionalmente la condivide con la dispensa
  */
@@ -31,7 +47,7 @@ export async function saveRecipe(
 
     const docId = newDocRef.id;
 
-    const dataToSave = {
+    const rawData = {
       ...recipeData,
       recipeId: docId,
       recipeAuthorUid: userId,
@@ -39,6 +55,8 @@ export async function saveRecipe(
       recipeCreatedAt: serverTimestamp(),
       recipeUpdatedAt: serverTimestamp(),
     };
+
+    const dataToSave = removeUndefinedFields(rawData);
 
     await setDoc(newDocRef, dataToSave);
 

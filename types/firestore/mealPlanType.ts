@@ -18,6 +18,8 @@ export interface MealSlotItem {
   servings?: number | null;
   ingredients?: MealIngredient[];
   notes?: string;
+  instructions?: string[];
+  isCooked?: boolean;
 }
 
 export interface DayMealPlan {

@@ -10,6 +10,7 @@ import {
   singleMealSuggestionFlow,
   pantryCopilotFlow,
   extractStructuredRecipeFlow,
+  generateMealInstructionsFlow,
   GENKIT_FLOWS_MANIFEST,
   type DetectedProductItem,
   type VoiceActionType,
@@ -385,6 +386,33 @@ export async function extractStructuredRecipe(
   } catch (error) {
     console.error("[Genkit Flow: extractStructuredRecipeFlow] Fallback errore esecuzione:", error);
     return parseRecipeFromChatText(chatText, isAntiWaste);
+  }
+}
+
+// ============================================================================
+// 10. GENERAZIONE PROCEDIMENTO RICETTA ON-DEMAND (generateMealInstructionsFlow)
+// ============================================================================
+export async function generateMealInstructions(
+  recipeTitle: string,
+  ingredients: { name: string; quantity?: string }[] = [],
+  notes?: string
+): Promise<{ instructions: string[]; prepTimeMinutes?: number }> {
+  console.log(`[Genkit Flow: generateMealInstructionsFlow] Generazione istruzioni per: "${recipeTitle}"`);
+  try {
+    const result = await generateMealInstructionsFlow({
+      recipeTitle,
+      ingredients,
+      notes,
+    });
+    return result;
+  } catch (err) {
+    console.error("[Genkit Flow: generateMealInstructionsFlow] Errore esecuzione:", err);
+    return {
+      instructions: [
+        notes || "Prepara gli ingredienti indicati e procedi alla cottura secondo le tecniche tipiche del piatto.",
+      ],
+      prepTimeMinutes: 20,
+    };
   }
 }
 
