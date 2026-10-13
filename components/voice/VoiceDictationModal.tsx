@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, Mic, MicOff, Loader2, Sparkles, Check, RefreshCw, Plus, Minus } from "lucide-react";
-import {
-  transcribeAndParseVoiceInput,
-  type ParsedVoiceItem,
-  type ExistingPantryProduct,
-  type VoiceActionType,
-} from "@/lib/genkit/genkit";
+import { transcribeAndParseVoiceInput } from "@/lib/genkit/genkit";
+import type {
+  ParsedVoiceItem,
+  ExistingPantryProduct,
+  VoiceActionType,
+} from "@/lib/genkit/types";
 
 interface VoiceDictationModalProps {
   isOpen: boolean;

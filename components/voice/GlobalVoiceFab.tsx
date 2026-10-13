@@ -100,6 +100,18 @@ export function GlobalVoiceFab() {
     }
   };
 
+  const rafIdRef = useRef<number | null>(null);
+  const pendingPosRef = useRef<FabPosition | null>(null);
+
+  // Cleanup rAF allo smontaggio
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
+
   const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!isPointerDownRef.current) return;
 
@@ -116,12 +128,26 @@ export function GlobalVoiceFab() {
     if (hasMovedRef.current) {
       const nextX = pointerStartRef.current.posX + dx;
       const nextY = pointerStartRef.current.posY + dy;
-      setPosition(clampPosition(nextX, nextY));
+      pendingPosRef.current = clampPosition(nextX, nextY);
+
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          if (pendingPosRef.current) {
+            setPosition(pendingPosRef.current);
+          }
+          rafIdRef.current = null;
+        });
+      }
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!isPointerDownRef.current) return;
+
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
 
     isPointerDownRef.current = false;
 
@@ -136,8 +162,9 @@ export function GlobalVoiceFab() {
     if (hasMovedRef.current) {
       setIsDragging(false);
       // Salva la nuova posizione in localStorage
-      if (position) {
-        const clamped = clampPosition(position.x, position.y);
+      const finalPos = pendingPosRef.current || position;
+      if (finalPos) {
+        const clamped = clampPosition(finalPos.x, finalPos.y);
         setPosition(clamped);
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(clamped));
@@ -155,6 +182,10 @@ export function GlobalVoiceFab() {
   };
 
   const handlePointerCancel = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
     isPointerDownRef.current = false;
     setIsDragging(false);
     try {
@@ -177,6 +208,8 @@ export function GlobalVoiceFab() {
               left: `${position.x}px`,
               top: `${position.y}px`,
               zIndex: 50,
+              transform: "translate3d(0, 0, 0)",
+              willChange: isDragging ? "left, top" : "auto",
             }
           : undefined
       }

@@ -139,4 +139,18 @@ export const GENKIT_FLOWS_MANIFEST: GenkitFlowMetadata[] = [
       desktop: ["Pagina Ricettario (Pulsante 'Salva nel Ricettario')", "Carosello Ricette Anti-Spreco"],
     },
   },
+  {
+    id: "detectMemoryPrinciplesFlow",
+    name: "Rilevamento Principi Atomici della Memoria IA",
+    category: "Chat",
+    description:
+      "Analizza in background le interazioni dell'utente ed estrae principi atomici, gusti, abitudini e vincoli dietetici per personalizzare permanentemente ZenChef.",
+    model: "gemini-3.1-flash-lite",
+    inputDescription: "Messaggio utente, Principi già memorizzati (de-duplicazione)",
+    outputDescription: "Array di fatti atomici estratti con categoria (dieta, gusti, abitudini, famiglia)",
+    clientSurfaces: {
+      mobile: ["Chat ZenChef", "Pantry Copilot", "Pagina Memoria & Preferenze IA (/profilo/memoria)"],
+      desktop: ["Chat ZenChef", "Pantry Copilot", "Pagina Memoria & Preferenze IA (/profilo/memoria)"],
+    },
+  },
 ];

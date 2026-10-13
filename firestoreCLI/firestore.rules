@@ -17,6 +17,19 @@ service cloud.firestore {
     //   - userProfileCreatedAt: timestamp (optional)
     //   - userProfilePantryIds: list of strings (optional, pantries joined)
     //   - userProfileCurrentPantryId: string or null (optional, active pantry)
+    //   - memoryFactsCount: number (optional, count of stored memory facts)
+    //   - dietaryPreferences: map (optional, dietary regimes, allergies, custom notes)
+    //
+    // Subcollection: users/{userId}/memoryFacts/{factId}
+    // Document ID: factId
+    // Fields:
+    //   - id: string (optional, immutable)
+    //   - text: string (required, 1-1000 chars)
+    //   - category: string (required, enum: 'diet' | 'taste_dislike' | 'taste_preference' | 'cooking_habit' | 'household' | 'other')
+    //   - source: string (optional, enum: 'learned' | 'user')
+    //   - isActive: bool (required)
+    //   - createdAt: timestamp (optional, immutable)
+    //   - updatedAt: timestamp (optional)
     //
     // Collection: pantries
     // Document ID: pantryId
@@ -165,6 +178,22 @@ service cloud.firestore {
         request.resource.data.pantryMembers[resource.data.pantryMembers.size()].memberRole == 'editor';
     }
 
+    // Helper to validate atomic memory facts in users/{userId}/memoryFacts/{factId}
+    function isValidMemoryFact() {
+      return request.resource.data.keys().hasAll(['text', 'category', 'isActive']) &&
+        request.resource.data.keys().hasOnly(['text', 'category', 'source', 'isActive', 'createdAt', 'updatedAt', 'id']) &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() > 0 &&
+        request.resource.data.text.size() <= 1000 &&
+        request.resource.data.category is string &&
+        request.resource.data.category in ['diet', 'taste_dislike', 'taste_preference', 'cooking_habit', 'household', 'other'] &&
+        request.resource.data.isActive is bool &&
+        (!('source' in request.resource.data) || (request.resource.data.source is string && request.resource.data.source in ['learned', 'user'])) &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt == null || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == null || request.resource.data.updatedAt is timestamp) &&
+        (!('id' in request.resource.data) || (request.resource.data.id is string && request.resource.data.id.size() <= 100));
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -211,6 +240,15 @@ service cloud.firestore {
       // Personal pantry assistant chat history
       match /pantryChats/{pantryId}/messages/{messageId} {
         allow read, write: if isOwner(userId);
+      }
+
+      // Personal user AI memory facts
+      match /memoryFacts/{factId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMemoryFact();
+        allow update: if isOwner(userId) && isValidMemoryFact() &&
+          (!('id' in resource.data) || request.resource.data.id == resource.data.id) &&
+          (!('createdAt' in resource.data) || resource.data.createdAt == null || request.resource.data.createdAt == resource.data.createdAt);
       }
     }
 

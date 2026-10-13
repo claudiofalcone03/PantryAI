@@ -23,10 +23,10 @@ import {
 import type { MealSlotItem, MealSlotType } from "@/types/firestore/mealPlanType";
 import type { Product } from "@/types/firestore/productType";
 import { findPantryMatch } from "@/lib/utils/ingredientMatcher";
+import { addRawItemToShoppingList } from "@/lib/firestore/shoppingList";
 import { generateMealInstructions } from "@/lib/genkit/genkit";
 import { saveRecipe } from "@/lib/firestore/recipes";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { TraceabilityBadge } from "@/components/memory/TraceabilityBadge";
 
 interface MealDetailModalProps {
   isOpen: boolean;
@@ -163,18 +163,13 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
 
     try {
       for (const ing of toAdd) {
-        await addDoc(collection(db, "shoppingListItems"), {
-          listItemPantryId: pantryId,
-          listItemName: ing.name,
-          listItemQuantity: 1,
-          listItemUnit: ing.quantity || "pz",
-          listItemCompleted: false,
-          listItemAddedBy: userId,
-          listItemCreatedAt: serverTimestamp(),
-          listItemUpdatedAt: serverTimestamp(),
+        await addRawItemToShoppingList(pantryId, ing.name, {
+          unit: ing.quantity || "pz",
         });
       }
       setCartSuccess(true);
+      window.dispatchEvent(new Event("shopping-list-updated"));
+      window.dispatchEvent(new Event("inventory-updated"));
       setTimeout(() => setCartSuccess(false), 3500);
     } catch (err) {
       console.error("Errore aggiunta ingredienti alla lista spesa:", err);
@@ -328,6 +323,12 @@ export const MealDetailModal: React.FC<MealDetailModalProps> = ({
               {slotItem.servings} porzioni
             </span>
           ) : null}
+
+          {/* Traceability Badge per pasto generato con AI */}
+          <TraceabilityBadge
+            regime={slotItem.recipeIsAntiWaste ? "Anti-Spreco & Dispensa" : null}
+            principles={slotItem.notes ? [slotItem.notes] : null}
+          />
         </div>
 
         {/* Corpo Modale Scorrevole */}

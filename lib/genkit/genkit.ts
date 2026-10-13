@@ -9,8 +9,11 @@ import {
   antiWasteWeeklyPlanFlow,
   singleMealSuggestionFlow,
   pantryCopilotFlow,
+  memorySpecialistFlow,
   extractStructuredRecipeFlow,
   generateMealInstructionsFlow,
+  detectMemoryPrinciplesFlow,
+  type DetectedMemoryFact,
   GENKIT_FLOWS_MANIFEST,
   type DetectedProductItem,
   type VoiceActionType,
@@ -26,33 +29,10 @@ import {
 import type { Recipe } from "@/types/firestore/recipeType";
 import { parseRecipeFromChatText } from "@/lib/recipes/recipeParser";
 
-// Re-export dei tipi pubblici per preservare la compatibilità con tutti i componenti client/server
-export type {
-  DetectedProductItem,
-  VoiceActionType,
-  ExistingPantryProduct,
-  ParsedVoiceItem,
-  VoiceParsingResult,
-  AIPerDayMealSlot,
-  AIMealPlanResponse,
-  PantryCopilotContext,
-  PantryCopilotResult,
-  GenkitFlowMetadata,
-};
-
-export interface IdentifiedProductResult {
-  productName: string;
-  productCategory: string;
-  success: boolean;
-}
-
-export interface PantryContextProduct {
-  name: string;
-  quantity: string | number;
-  category?: string;
-  expiryDate?: string;
-  isExpiringSoon?: boolean;
-}
+import type {
+  IdentifiedProductResult,
+  PantryContextProduct,
+} from "./types";
 
 const geminiModel = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
@@ -72,11 +52,15 @@ export async function getGenkitFlowsCatalog(): Promise<GenkitFlowMetadata[]> {
 // 1. RICETTE DA SCADENZE (Tracciato tramite recipeExpirationFlow)
 // ============================================================================
 export async function generateRecipeExpiration(
-  prodotti: { nome: string; quantita: string }[]
+  prodotti: { nome: string; quantita: string }[],
+  userDietaryContext?: string
 ): Promise<string> {
   console.log("[Genkit Flow: recipeExpirationFlow] Avvio elaborazione ricetta anti-spreco...");
   try {
-    const text = await recipeExpirationFlow(prodotti);
+    const text = await recipeExpirationFlow({
+      prodotti,
+      userDietaryContext,
+    });
     console.log("[Genkit Flow: recipeExpirationFlow] Completato con successo.");
     return text;
   } catch (error) {
@@ -89,11 +73,15 @@ export async function generateRecipeExpiration(
 // 2. RICETTE DA INGREDIENTI SELEZIONATI (Tracciato tramite recipeFromIngredientsFlow)
 // ============================================================================
 export async function generateRecipeFromIngredients(
-  prodotti: { nome: string; quantita: string }[]
+  prodotti: { nome: string; quantita: string }[],
+  userDietaryContext?: string
 ): Promise<string> {
   console.log("[Genkit Flow: recipeFromIngredientsFlow] Avvio elaborazione ricetta da ingredienti...");
   try {
-    const text = await recipeFromIngredientsFlow(prodotti);
+    const text = await recipeFromIngredientsFlow({
+      prodotti,
+      userDietaryContext,
+    });
     console.log("[Genkit Flow: recipeFromIngredientsFlow] Completato con successo.");
     return text;
   } catch (error) {
@@ -108,7 +96,8 @@ export async function generateRecipeFromIngredients(
 export async function generateRecipeChatbot(
   promptChatbot: string,
   history: { role: "user" | "ai"; content: string }[] = [],
-  prodotti?: { nome: string; quantita: string }[]
+  prodotti?: { nome: string; quantita: string }[],
+  userDietaryContext?: string
 ): Promise<string> {
   console.log("[Genkit Flow: recipeChatbotFlow] Richiesta chat ricevuta...");
   try {
@@ -116,6 +105,7 @@ export async function generateRecipeChatbot(
       promptChatbot,
       history,
       prodotti,
+      userDietaryContext,
     });
     console.log("[Genkit Flow: recipeChatbotFlow] Risposta generata.");
     return text;
@@ -128,10 +118,11 @@ export async function generateRecipeChatbot(
 export async function chatWithChefAI(
   message: string,
   history: { role: "user" | "ai"; content: string }[] = [],
-  pantryItems: string[] = []
+  pantryItems: string[] = [],
+  userDietaryContext?: string
 ): Promise<string> {
   const prodotti = pantryItems.map((item) => ({ nome: item, quantita: "1" }));
-  return generateRecipeChatbot(message, history, prodotti);
+  return generateRecipeChatbot(message, history, prodotti, userDietaryContext);
 }
 
 // ============================================================================
@@ -227,10 +218,15 @@ export async function getGeminiLiveConfig(clientAuthToken?: string) {
 
 export async function buildLiveChefPantryContext(
   prodotti: PantryContextProduct[] = [],
-  customRecipeContext: string = ""
+  customRecipeContext: string = "",
+  userDietaryContext: string = ""
 ): Promise<string> {
   const parts: string[] = [];
   const safeProdotti = Array.isArray(prodotti) ? prodotti : [];
+
+  if (userDietaryContext && userDietaryContext.trim()) {
+    parts.push(userDietaryContext.trim());
+  }
 
   if (safeProdotti.length > 0) {
     const expiringItems = safeProdotti.filter((p) => p && p.isExpiringSoon);
@@ -348,11 +344,32 @@ export async function chatWithPantryCopilot(
     return result;
   } catch (error) {
     console.error("[Genkit Flow: pantryCopilotFlow] Errore esecuzione:", error);
-    return {
-      reply: "Si è verificato un errore durante la comunicazione con l'assistente. Riprova.",
-      proposedActions: [],
-      success: false,
-    };
+    throw error;
+  }
+}
+
+// ============================================================================
+// 9.b SUBAGENTE MEMORIA & PREFERENZE DEDICATO (Tracciato tramite memorySpecialistFlow)
+// ============================================================================
+export async function chatWithMemorySpecialist(
+  message: string,
+  history: { role: "user" | "assistant"; content: string }[] = [],
+  userDietaryContext: string = ""
+): Promise<PantryCopilotResult> {
+  console.log("[Genkit Flow: memorySpecialistFlow] Attivazione Subagente Memoria specializzato...");
+  try {
+    const result = await memorySpecialistFlow({
+      message,
+      history,
+      userDietaryContext,
+    });
+    console.log(
+      `[Genkit Flow: memorySpecialistFlow] Completato in tempo reale con ${result.proposedActions.length} azioni di memoria.`
+    );
+    return result;
+  } catch (error) {
+    console.error("[Genkit Flow: memorySpecialistFlow] Errore esecuzione subagente memoria:", error);
+    throw error;
   }
 }
 
@@ -415,4 +432,24 @@ export async function generateMealInstructions(
     };
   }
 }
+
+// ============================================================================
+// 11. RILEVAMENTO ATOMICO MEMORIA IA (detectMemoryPrinciplesFlow)
+// ============================================================================
+export async function detectMemoryPrinciples(
+  userMessage: string,
+  existingPrinciples: string[] = []
+): Promise<DetectedMemoryFact[]> {
+  try {
+    const result = await detectMemoryPrinciplesFlow({
+      userMessage,
+      existingPrinciples,
+    });
+    return result.facts || [];
+  } catch (err) {
+    console.warn("[detectMemoryPrinciples] Errore esecuzione:", err);
+    return [];
+  }
+}
+
 

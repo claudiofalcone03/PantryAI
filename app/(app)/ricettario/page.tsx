@@ -35,21 +35,27 @@ import {
   getGeminiLiveConfig,
   buildLiveChefPantryContext,
   extractStructuredRecipe,
-  type PantryContextProduct,
 } from "@/lib/genkit/genkit";
+import type { PantryContextProduct } from "@/lib/genkit/types";
 import type { Product } from "@/types/firestore/productType";
 import type { Recipe } from "@/types/firestore/recipeType";
+import type { UserDietaryPreferences, AtomicMemoryPrinciple } from "@/types/firestore/userMemoryType";
+import { DIETARY_REGIMES_INFO } from "@/types/firestore/userMemoryType";
 import {
-  SelectItemForChatbot,
-  Skeleton,
-  VoiceDictationModal,
-  RecipeCarousel,
-  RecipeInlineDetail,
-  MobileProfileButton,
-  MarkdownRenderer,
-} from "@/components";
+  getDietaryPreferences,
+  getMemoryFacts,
+  formatUserDietAndMemoryContext,
+  learnMemoryFromUserMessage,
+} from "@/lib/firestore/userMemory";
+import { TraceabilityBadge } from "@/components/memory/TraceabilityBadge";
+import SelectItemForChatbot from "@/components/items/SelectItemForChatbot";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { VoiceDictationModal } from "@/components/voice/VoiceDictationModal";
+import { RecipeCarousel } from "@/components/recipes/RecipeCarousel";
+import { RecipeInlineDetail } from "@/components/recipes/RecipeInlineDetail";
+import { MobileProfileButton } from "@/components/layout/MobileProfileButton";
+import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 import { GeminiLiveClient } from "@/lib/audio/geminiLiveClient";
-import { parseRecipeFromChatText } from "@/lib/recipes/recipeParser";
 
 type Message = {
   role: "user" | "ai";
@@ -57,6 +63,8 @@ type Message = {
   isLiveVoice?: boolean;
   isInterim?: boolean;
   isAntiWaste?: boolean;
+  appliedDietaryRegime?: string | null;
+  appliedMemoryPrinciples?: string[] | null;
 };
 
 export default function RicettarioPage() {
@@ -69,6 +77,10 @@ export default function RicettarioPage() {
   const [modelName, setModelName] = useState("gemini-3.1-flash-lite");
   const [isVoiceDictationOpen, setIsVoiceDictationOpen] = useState(false);
   const [currentPantryId, setCurrentPantryId] = useState<string>("");
+
+  // Stati Memoria IA & Regime Alimentare
+  const [userDietPrefs, setUserDietPrefs] = useState<UserDietaryPreferences | null>(null);
+  const [userActiveFacts, setUserActiveFacts] = useState<AtomicMemoryPrinciple[]>([]);
 
   // Stati Ricettario (Carosello e Ricette)
   const [savedRecipes, setSavedRecipes] = useState<Recipe[]>([]);
@@ -129,13 +141,32 @@ export default function RicettarioPage() {
     }
   }, []);
 
-  // Generazione o aggiornamento idee anti-spreco
-  const generateAntiWasteIdeas = useCallback(async (pantryId: string) => {
+  // Storage key per la cache locale delle ricette anti-spreco
+  const STORAGE_KEY_ANTI_WASTE_PREFIX = "pantryai_anti_waste_cache_";
+
+  // Generazione o aggiornamento idee anti-spreco on-demand con cache locale
+  const generateAntiWasteIdeas = useCallback(async (pantryId: string, force = false) => {
+    if (!force && typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem(STORAGE_KEY_ANTI_WASTE_PREFIX + pantryId);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAntiWasteRecipes(parsed);
+            return;
+          }
+        }
+      } catch {}
+    }
+
     setLoadingAntiWaste(true);
     try {
       const expiring = await getExpiringProductsByPantry(pantryId, 7);
       if (expiring.length === 0) {
         setAntiWasteRecipes([]);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(STORAGE_KEY_ANTI_WASTE_PREFIX + pantryId);
+        }
         return;
       }
 
@@ -147,13 +178,20 @@ export default function RicettarioPage() {
       const ricettaText = await generateRecipeExpiration(mappedProducts);
       const parsed = await extractStructuredRecipe(ricettaText, true);
 
-      setAntiWasteRecipes([
+      const generated: Recipe[] = [
         {
           ...parsed,
           recipeId: "anti-waste-suggestion-1",
           recipeAuthorUid: "chef-ai",
         },
-      ]);
+      ];
+
+      setAntiWasteRecipes(generated);
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(STORAGE_KEY_ANTI_WASTE_PREFIX + pantryId, JSON.stringify(generated));
+        } catch {}
+      }
     } catch (err) {
       console.warn("Avviso generazione idee anti-spreco:", err);
     } finally {
@@ -169,13 +207,27 @@ export default function RicettarioPage() {
 
     if (auth.currentUser) {
       const uid = auth.currentUser.uid;
+      getDietaryPreferences(uid).then(setUserDietPrefs).catch(console.warn);
+      getMemoryFacts(uid, true).then(setUserActiveFacts).catch(console.warn);
+
       getDoc(doc(db, "users", uid))
         .then((userDoc) => {
           const pantryId = userDoc.data()?.userProfileCurrentPantryId;
           if (pantryId) {
             setCurrentPantryId(pantryId);
             loadSavedRecipes(uid, pantryId);
-            generateAntiWasteIdeas(pantryId);
+            // Non bloccare il caricamento della pagina con chiamate LLM; carica solo da cache locale
+            if (typeof window !== "undefined") {
+              try {
+                const cached = localStorage.getItem(STORAGE_KEY_ANTI_WASTE_PREFIX + pantryId);
+                if (cached) {
+                  const parsed = JSON.parse(cached);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    setAntiWasteRecipes(parsed);
+                  }
+                }
+              } catch {}
+            }
             getProductsByPantry(pantryId)
               .then((products) => {
                 setPantryItems(products.filter((p) => p.productQuantity > 0));
@@ -185,7 +237,7 @@ export default function RicettarioPage() {
         })
         .catch(console.error);
     }
-  }, [loadSavedRecipes, generateAntiWasteIdeas]);
+  }, [loadSavedRecipes]);
 
   // Ascolta trascrizione dal Floating Action Button globale
   useEffect(() => {
@@ -266,7 +318,8 @@ export default function RicettarioPage() {
             };
           });
 
-          fullContext = await buildLiveChefPantryContext(mappedProducts);
+          const contextDiet = formatUserDietAndMemoryContext(userDietPrefs, userActiveFacts);
+          fullContext = await buildLiveChefPantryContext(mappedProducts, "", contextDiet);
         } catch (ctxErr) {
           console.warn("Avviso recupero prodotti dispensa per Chef Live:", ctxErr);
         }
@@ -391,14 +444,26 @@ export default function RicettarioPage() {
     try {
       if (!currentPantryId) throw new Error("Nessuna dispensa selezionata.");
       const expiringProducts = await getExpiringProductsByPantry(currentPantryId, 7);
+      const contextDiet = formatUserDietAndMemoryContext(userDietPrefs, userActiveFacts);
+      const activeRegimeLabel = userDietPrefs?.primaryRegime ? DIETARY_REGIMES_INFO[userDietPrefs.primaryRegime]?.label : null;
+      const principlesList = userActiveFacts.map((f) => f.text);
 
       if (expiringProducts.length > 0) {
         const mappedProducts = expiringProducts.map((p) => ({
           nome: p.productName,
           quantita: `${p.productQuantity} ${p.productUnitOfMeasure || ""}`.trim(),
         }));
-        const ricetta = await generateRecipeExpiration(mappedProducts);
-        setMessages((prev) => [...prev, { role: "ai", content: ricetta, isAntiWaste: true }]);
+        const ricetta = await generateRecipeExpiration(mappedProducts, contextDiet);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "ai",
+            content: ricetta,
+            isAntiWaste: true,
+            appliedDietaryRegime: activeRegimeLabel,
+            appliedMemoryPrinciples: principlesList.length > 0 ? principlesList : null,
+          },
+        ]);
       } else {
         // Nessun prodotto in scadenza: usiamo i prodotti disponibili o ingredienti base della dispensa
         const allProducts = await getProductsByPantry(currentPantryId);
@@ -409,28 +474,35 @@ export default function RicettarioPage() {
             nome: p.productName,
             quantita: `${p.productQuantity} ${p.productUnitOfMeasure || ""}`.trim(),
           }));
-          const ricetta = await generateRecipeFromIngredients(mappedAvailable);
+          const ricetta = await generateRecipeFromIngredients(mappedAvailable, contextDiet);
           setMessages((prev) => [
             ...prev,
             {
               role: "ai",
               content: `Ottima notizia! Non hai alimenti in scadenza nei prossimi 7 giorni. Ho comunque creato una ricetta speciale con gli ingredienti disponibili nella tua dispensa:\n\n${ricetta}`,
               isAntiWaste: true,
+              appliedDietaryRegime: activeRegimeLabel,
+              appliedMemoryPrinciples: principlesList.length > 0 ? principlesList : null,
             },
           ]);
         } else {
           // Dispensa vuota: genera ricetta base salvatempo
-          const ricettaBase = await generateRecipeFromIngredients([
-            { nome: "Pasta di semola", quantita: "320g" },
-            { nome: "Pomodori pelati o passata", quantita: "400g" },
-            { nome: "Olio extravergine d'oliva", quantita: "2 cucchiai" },
-          ]);
+          const ricettaBase = await generateRecipeFromIngredients(
+            [
+              { nome: "Pasta di semola", quantita: "320g" },
+              { nome: "Pomodori pelati o passata", quantita: "400g" },
+              { nome: "Olio extravergine d'oliva", quantita: "2 cucchiai" },
+            ],
+            contextDiet
+          );
           setMessages((prev) => [
             ...prev,
             {
               role: "ai",
               content: `La tua dispensa è al momento vuota o non ha prodotti registrati. Ecco un'idea antispreco salva-cena con ingredienti base:\n\n${ricettaBase}`,
               isAntiWaste: true,
+              appliedDietaryRegime: activeRegimeLabel,
+              appliedMemoryPrinciples: principlesList.length > 0 ? principlesList : null,
             },
           ]);
         }
@@ -468,8 +540,31 @@ export default function RicettarioPage() {
           }));
       }
 
-      const ricetta = await generateRecipeChatbot(userMessage, messages, mappedProducts);
-      setMessages((prev) => [...prev, { role: "ai", content: ricetta }]);
+      const contextDiet = formatUserDietAndMemoryContext(userDietPrefs, userActiveFacts);
+      const ricetta = await generateRecipeChatbot(userMessage, messages, mappedProducts, contextDiet);
+      const activeRegimeLabel = userDietPrefs?.primaryRegime ? DIETARY_REGIMES_INFO[userDietPrefs.primaryRegime]?.label : null;
+      const principlesList = userActiveFacts.map((f) => f.text);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          content: ricetta,
+          appliedDietaryRegime: activeRegimeLabel,
+          appliedMemoryPrinciples: principlesList.length > 0 ? principlesList : null,
+        },
+      ]);
+
+      // Apprendimento silenzioso in background dei principi atomici
+      if (auth.currentUser) {
+        learnMemoryFromUserMessage(auth.currentUser.uid, userMessage)
+          .then((newFacts) => {
+            if (newFacts.length > 0) {
+              setUserActiveFacts((prev) => [...newFacts, ...prev]);
+            }
+          })
+          .catch((err) => console.warn("Avviso apprendimento memoria in background:", err));
+      }
     } catch (error) {
       console.error("Errore durante la chat:", error);
       setMessages((prev) => [
@@ -518,8 +613,20 @@ export default function RicettarioPage() {
     ]);
 
     try {
-      const ricetta = await generateRecipeFromIngredients(mappedProducts);
-      setMessages((prev) => [...prev, { role: "ai", content: ricetta }]);
+      const contextDiet = formatUserDietAndMemoryContext(userDietPrefs, userActiveFacts);
+      const ricetta = await generateRecipeFromIngredients(mappedProducts, contextDiet);
+      const activeRegimeLabel = userDietPrefs?.primaryRegime ? DIETARY_REGIMES_INFO[userDietPrefs.primaryRegime]?.label : null;
+      const principlesList = userActiveFacts.map((f) => f.text);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          content: ricetta,
+          appliedDietaryRegime: activeRegimeLabel,
+          appliedMemoryPrinciples: principlesList.length > 0 ? principlesList : null,
+        },
+      ]);
     } catch (error) {
       console.error("Errore durante la generazione della ricetta:", error);
       setMessages((prev) => [
@@ -542,11 +649,21 @@ export default function RicettarioPage() {
     setSavingRecipeIdx(msgIndex);
     try {
       const uid = auth.currentUser.uid;
+      const msg = messages[msgIndex];
       const parsed = await extractStructuredRecipe(msgContent, isAntiWaste);
-      const recipeId = await saveRecipe(uid, parsed, currentPantryId || null);
+      const appliedRegime = msg?.appliedDietaryRegime || (userDietPrefs?.primaryRegime ? DIETARY_REGIMES_INFO[userDietPrefs.primaryRegime]?.label : null);
+      const appliedPrinciples = msg?.appliedMemoryPrinciples || (userActiveFacts.length > 0 ? userActiveFacts.map((f) => f.text) : null);
+
+      const enrichedPayload = {
+        ...parsed,
+        appliedDietaryRegime: appliedRegime,
+        appliedMemoryPrinciples: appliedPrinciples,
+      };
+
+      const recipeId = await saveRecipe(uid, enrichedPayload, currentPantryId || null);
 
       const newRecipe: Recipe = {
-        ...parsed,
+        ...enrichedPayload,
         recipeId,
         recipeAuthorUid: uid,
       };
@@ -642,7 +759,7 @@ export default function RicettarioPage() {
             selectedRecipeId={selectedRecipe?.recipeId || null}
             onSelectRecipe={handleSelectCarouselRecipe}
             loadingAntiWaste={loadingAntiWaste}
-            onRefreshAntiWaste={() => currentPantryId && generateAntiWasteIdeas(currentPantryId)}
+            onRefreshAntiWaste={() => currentPantryId && generateAntiWasteIdeas(currentPantryId, true)}
             pantryProducts={pantryItems}
           />
 
@@ -725,6 +842,16 @@ export default function RicettarioPage() {
                       content={msg.content}
                       isUser={msg.role === "user"}
                     />
+
+                    {/* Badge Tracciabilità Memoria & Regime per risposte dello Chef */}
+                    {msg.role === "ai" && (msg.appliedDietaryRegime || (msg.appliedMemoryPrinciples && msg.appliedMemoryPrinciples.length > 0)) && (
+                      <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                        <TraceabilityBadge
+                          regime={msg.appliedDietaryRegime}
+                          principles={msg.appliedMemoryPrinciples}
+                        />
+                      </div>
+                    )}
 
                     {msg.isInterim && msg.role === "user" && (
                       <span className="inline-block w-1.5 h-3 ml-1 bg-white/80 animate-pulse rounded-full align-middle" />

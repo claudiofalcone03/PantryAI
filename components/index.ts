@@ -8,6 +8,7 @@ export { VisionReviewSheetPopup } from "./popups/VisionReviewSheetPopup";
 export { FreezeProductPopup } from "./popups/FreezeProductPopup";
 export { SortFilterPopup } from "./popups/SortFilterPopup";
 export { AddToShoppingListDesktopModal } from "./popups/AddToShoppingListDesktopModal";
+export { CheckoutRestockModal } from "./popups/CheckoutRestockModal";
 
 // Layout & Navigation
 export { DownNavbar } from "./layout/DownNavbar";
@@ -45,3 +46,8 @@ export { VoiceDictationModal } from "./voice/VoiceDictationModal";
 export { LiveVoiceChefBar } from "./voice/LiveVoiceChefBar";
 export { GlobalVoiceFab } from "./voice/GlobalVoiceFab";
 export { AssistantChatModal } from "./assistant/AssistantChatModal";
+
+// Memory & Personalization
+export { MemoryPrincipleItem } from "./memory/MemoryPrincipleItem";
+export { AddMemoryFactModal } from "./memory/AddMemoryFactModal";
+export { TraceabilityBadge } from "./memory/TraceabilityBadge";

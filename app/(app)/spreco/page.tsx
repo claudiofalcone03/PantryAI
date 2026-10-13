@@ -1,17 +1,22 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { getProductHistoryByPantry, deleteProductHistoryLog } from "@/lib/firestore/productHistory";
 import type { ProductHistoryLog } from "@/types/firestore/productHistoryType";
 import { Leaf, AlertTriangle, TrendingUp, TrendingDown, X } from "lucide-react";
-import { CardSkeleton, Skeleton, MobileProfileButton } from "@/components";
+import { CardSkeleton } from "@/components/skeletons/CardSkeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { MobileProfileButton } from "@/components/layout/MobileProfileButton";
+import { STORAGE_KEY_FOOD_WASTE_TELEMETRY } from "@/lib/firestore/userProfile";
 
 export default function SprecoPage() {
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState<ProductHistoryLog[]>([]);
   const [currentPantryId, setCurrentPantryId] = useState<string>("");
+  const [isTelemetryEnabled, setIsTelemetryEnabled] = useState<boolean>(true);
 
   const fetchHistory = React.useCallback(async () => {
     if (!auth.currentUser) return;
@@ -20,6 +25,15 @@ export default function SprecoPage() {
       const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
       const userData = userDoc.data();
       const pantryId = userData?.userProfileCurrentPantryId;
+
+      if (userData?.foodWasteTelemetryEnabled !== undefined && userData.foodWasteTelemetryEnabled !== null) {
+        setIsTelemetryEnabled(Boolean(userData.foodWasteTelemetryEnabled));
+      } else {
+        const localVal = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY_FOOD_WASTE_TELEMETRY) : null;
+        if (localVal !== null) {
+          setIsTelemetryEnabled(localVal !== "false");
+        }
+      }
 
       if (!pantryId) {
         setLoading(false);
@@ -44,8 +58,20 @@ export default function SprecoPage() {
       }
     };
     init();
+
+    const handleTelemetryChange = () => {
+      if (typeof window !== "undefined") {
+        const localVal = localStorage.getItem(STORAGE_KEY_FOOD_WASTE_TELEMETRY);
+        setIsTelemetryEnabled(localVal !== "false");
+      }
+    };
+    window.addEventListener("food-waste-telemetry-changed", handleTelemetryChange);
+    window.addEventListener("storage", handleTelemetryChange);
+
     return () => {
       mounted = false;
+      window.removeEventListener("food-waste-telemetry-changed", handleTelemetryChange);
+      window.removeEventListener("storage", handleTelemetryChange);
     };
   }, [fetchHistory]);
 
@@ -144,6 +170,31 @@ export default function SprecoPage() {
       </header>
 
       <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 w-full max-w-6xl mx-auto flex flex-col gap-6">
+        {/* Banner Informativo se Telemetria Disattivata */}
+        {!isTelemetryEnabled && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-3xl text-amber-900 dark:text-amber-200 text-xs animate-in fade-in shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 shrink-0">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-950 dark:text-amber-100 text-xs sm:text-sm">
+                  Telemetria spreco disattivata nelle impostazioni
+                </p>
+                <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                  Il decremento rapido delle scorte non sta registrando nuovi dati né chiedendo se il cibo è mangiato o buttato. Le metriche mostrano lo storico accumulato in precedenza.
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/profilo"
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl shrink-0 transition-colors text-center shadow-xs cursor-pointer"
+            >
+              Impostazioni
+            </Link>
+          </div>
+        )}
+
         {/* Griglia 3 KPI Principali su Desktop */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* KPI 1: CO₂ Evitata */}

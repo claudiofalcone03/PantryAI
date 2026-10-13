@@ -1,4 +1,15 @@
 import type { Timestamp } from "firebase/firestore";
+import type { UserDietaryPreferences } from "./userMemoryType";
+
+export type SortCriteria =
+  | "none"
+  | "az"
+  | "za"
+  | "expiry_asc"
+  | "expiry_desc"
+  | "qty_desc"
+  | "qty_asc"
+  | "newest";
 
 export interface UserNotificationPreferences {
   enabled: boolean;
@@ -23,5 +34,10 @@ export interface UserProfile {
   notificationPreferences?: UserNotificationPreferences | null;
   userProfileNavTabs?: string[] | null; // Array ordinato di ID delle schermate nella navbar mobile
   userProfileDesktopNavTabs?: string[] | null; // Array ordinato di ID delle schermate nella sidebar desktop
+  foodWasteTelemetryEnabled?: boolean | null; // se true (default), il decremento manuale chiede 'Mangiato/Buttato' e registra lo spreco
+  inventorySortCriteria?: SortCriteria | null; // Criterio di ordinamento preferito per l'inventario salvato nel profilo
+  dietaryPreferences?: UserDietaryPreferences | null; // Regime alimentare e allergie
+  memoryFactsCount?: number | null; // Numero di fatti memorizzati dall'IA
 }
+
 

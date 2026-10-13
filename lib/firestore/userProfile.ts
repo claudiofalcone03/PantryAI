@@ -1,6 +1,6 @@
 import { db } from "../firebase";
 import { doc, getDoc, updateDoc, serverTimestamp, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
-import type { UserProfile, UserNotificationPreferences } from "../../types/firestore/userProfileType";
+import type { UserProfile, UserNotificationPreferences, SortCriteria } from "../../types/firestore/userProfileType";
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: UserNotificationPreferences = {
   enabled: true,
@@ -215,6 +215,64 @@ export async function updateBothNavTabsPreferences(
       // Ignora storage error
     }
   }
+}
+
+export const STORAGE_KEY_FOOD_WASTE_TELEMETRY = "food_waste_telemetry_enabled";
+
+/**
+ * Salva la preferenza di tracciamento spreco alimentare dell'utente
+ */
+export async function updateFoodWasteTelemetryPreference(
+  userId: string,
+  enabled: boolean
+): Promise<void> {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(STORAGE_KEY_FOOD_WASTE_TELEMETRY, String(enabled));
+      window.dispatchEvent(new CustomEvent("food-waste-telemetry-changed", { detail: { enabled } }));
+    } catch {
+      // Ignora storage error
+    }
+  }
+
+  if (!userId) return;
+  const userRef = doc(db, "users", userId);
+  await setDoc(
+    userRef,
+    {
+      foodWasteTelemetryEnabled: enabled,
+    },
+    { merge: true }
+  );
+}
+
+export const STORAGE_KEY_INVENTORY_SORT = "inventory_sort_criteria";
+
+/**
+ * Salva il criterio di ordinamento preferito per l'inventario su Firestore e localStorage
+ */
+export async function updateInventorySortPreference(
+  userId: string,
+  sort: SortCriteria
+): Promise<void> {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(STORAGE_KEY_INVENTORY_SORT, sort);
+      window.dispatchEvent(new CustomEvent("inventory-sort-changed", { detail: { sort } }));
+    } catch {
+      // Ignora storage error
+    }
+  }
+
+  if (!userId) return;
+  const userRef = doc(db, "users", userId);
+  await setDoc(
+    userRef,
+    {
+      inventorySortCriteria: sort,
+    },
+    { merge: true }
+  );
 }
 
 

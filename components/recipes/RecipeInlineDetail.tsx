@@ -11,15 +11,15 @@ import {
   Trash2,
   CheckCircle2,
   Sparkles,
-  Check,
 } from "lucide-react";
 import type { Recipe } from "@/types/firestore/recipeType";
 import type { Product } from "@/types/firestore/productType";
 import { toggleShareRecipe, deleteRecipe } from "@/lib/firestore/recipes";
-import { auth, db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { auth } from "@/lib/firebase";
 import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
 import { findPantryMatch } from "@/lib/utils/ingredientMatcher";
+import { addRawItemToShoppingList } from "@/lib/firestore/shoppingList";
+import { TraceabilityBadge } from "@/components/memory/TraceabilityBadge";
 
 interface RecipeInlineDetailProps {
   recipe: Recipe;
@@ -96,16 +96,14 @@ export function RecipeInlineDetail({
       const listToProcess = missingIngredients.length > 0 ? missingIngredients : recipe.recipeIngredients;
 
       for (const ing of listToProcess) {
-        await addDoc(collection(db, "shoppingListItems"), {
-          listItemPantryId: pantryId,
-          listItemName: ing.quantity ? `${ing.name} (${ing.quantity})` : ing.name,
-          listItemStatus: "toBuy",
-          listItemCreatedAt: serverTimestamp(),
+        await addRawItemToShoppingList(pantryId, ing.name, {
+          unit: ing.quantity || undefined,
         });
       }
 
       setCartSuccess(true);
       window.dispatchEvent(new Event("shopping-list-updated"));
+      window.dispatchEvent(new Event("inventory-updated"));
       setTimeout(() => setCartSuccess(false), 3000);
     } catch (err) {
       console.error("Errore invio ingredienti alla spesa:", err);
@@ -179,6 +177,16 @@ export function RecipeInlineDetail({
           <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 leading-snug">
             {recipe.recipeTitle}
           </h2>
+
+          {/* Badge Tracciabilità Memoria & Preferenze IA */}
+          {(recipe.appliedDietaryRegime || (recipe.appliedMemoryPrinciples && recipe.appliedMemoryPrinciples.length > 0)) && (
+            <div className="mt-2">
+              <TraceabilityBadge
+                regime={recipe.appliedDietaryRegime}
+                principles={recipe.appliedMemoryPrinciples}
+              />
+            </div>
+          )}
 
           {recipe.recipeDescription && (
             <div className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">

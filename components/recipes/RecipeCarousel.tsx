@@ -315,8 +315,19 @@ export function RecipeCarousel({
           <p className="text-[11px] text-zinc-400 mt-1 max-w-sm mx-auto">
             {activeTab === "saved"
               ? "Chiedi una ricetta allo Chef AI nella chat sotto e tocca 'Salva nel Ricettario' per conservarla qui."
-              : "Genera suggerimenti anti-spreco cliccando sul tasto rapido o chiedendo allo Chef."}
+              : "Genera suggerimenti anti-spreco cliccando sul pulsante sottostante o chiedendo allo Chef."}
           </p>
+          {activeTab === "anti_waste" && onRefreshAntiWaste && (
+            <button
+              type="button"
+              onClick={onRefreshAntiWaste}
+              disabled={loadingAntiWaste}
+              className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{loadingAntiWaste ? "Generazione ricetta..." : "Genera ricette anti-spreco con AI"}</span>
+            </button>
+          )}
         </div>
       ) : filteredList.length === 0 ? (
         /* Stato Nessun Risultato dal Filtro */

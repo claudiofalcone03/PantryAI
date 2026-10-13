@@ -15,6 +15,8 @@ import { genkit, z } from "genkit";
 import { googleAI } from "@genkit-ai/google-genai";
 import type { ProposedAction } from "@/types/assistant/assistantType";
 import { parseRecipeFromChatText } from "@/lib/recipes/recipeParser";
+import { findPantryMatch } from "@/lib/utils/ingredientMatcher";
+import type { Product } from "@/types/firestore/productType";
 
 // Inizializzazione Istanza di Genkit con fallback sicuro
 const geminiModel = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
@@ -24,6 +26,38 @@ export const ai = genkit({
   plugins: [googleAI(apiKey ? { apiKey } : undefined)],
   model: googleAI.model(geminiModel),
 });
+
+export const FALLBACK_GEMINI_MODEL = "gemini-3.8-flash";
+
+/**
+ * Esegue ai.generate con fallback automatico e resiliente su gemini-3.8-flash
+ * qualora il modello primario (es. gemini-3.1-flash-lite) sia temporaneamente
+ * non disponibile (HTTP 503 high demand spike).
+ */
+export async function safeAiGenerate(params: any) {
+  try {
+    return await ai.generate(params);
+  } catch (err: any) {
+    const isUnavailable =
+      err?.status === "UNAVAILABLE" ||
+      err?.code === 503 ||
+      err?.message?.includes("503") ||
+      err?.message?.includes("high demand") ||
+      err?.originalMessage?.includes("503") ||
+      err?.originalMessage?.includes("high demand");
+
+    if (isUnavailable) {
+      console.warn(
+        `[safeAiGenerate] Modello primario (${geminiModel}) temporaneamente saturo (503). Fallback automatico su ${FALLBACK_GEMINI_MODEL}...`
+      );
+      return await ai.generate({
+        ...params,
+        model: googleAI.model(FALLBACK_GEMINI_MODEL),
+      });
+    }
+    throw err;
+  }
+}
 
 /**
  * Utility per estrarre in modo ultra-robusto blocchi JSON da risposte LLM,
@@ -132,12 +166,23 @@ export function extractJsonFromResponse<T = any>(text: string): T {
 // ============================================================================
 // 1. FLOW: RECIPE FROM EXPIRATION
 // ============================================================================
-export const RecipeExpirationInputSchema = z.array(
+export const RecipeExpirationInputSchema = z.union([
+  z.array(
+    z.object({
+      nome: z.string(),
+      quantita: z.string(),
+    })
+  ),
   z.object({
-    nome: z.string(),
-    quantita: z.string(),
-  })
-);
+    prodotti: z.array(
+      z.object({
+        nome: z.string(),
+        quantita: z.string(),
+      })
+    ),
+    userDietaryContext: z.string().optional(),
+  }),
+]);
 
 export const recipeExpirationFlow = ai.defineFlow(
   {
@@ -145,7 +190,10 @@ export const recipeExpirationFlow = ai.defineFlow(
     inputSchema: RecipeExpirationInputSchema,
     outputSchema: z.string(),
   },
-  async (prodotti) => {
+  async (input) => {
+    const prodotti = Array.isArray(input) ? input : input.prodotti;
+    const dietaryContext = Array.isArray(input) ? "" : input.userDietaryContext || "";
+
     if (!prodotti || prodotti.length === 0) {
       return "Nessun prodotto in scadenza selezionato per la generazione della ricetta.";
     }
@@ -153,7 +201,10 @@ export const recipeExpirationFlow = ai.defineFlow(
     const ingredientiFormattati = prodotti
       .map((p) => `${p.quantita} di ${p.nome}`)
       .join(", ");
-    const promptExpiration = `Sei uno chef esperto. I seguenti ingredienti stanno per scadere: ${ingredientiFormattati}. Crea una breve ricetta per utilizzarli, evitando gli sprechi.`;
+    let promptExpiration = `Sei uno chef esperto. I seguenti ingredienti stanno per scadere: ${ingredientiFormattati}. Crea una breve ricetta per utilizzarli, evitando gli sprechi.`;
+    if (dietaryContext) {
+      promptExpiration += `\n${dietaryContext}\nRISPETTA RIGOROSAMENTE le preferenze alimentari e allergie specificate sopra.`;
+    }
 
     const { text } = await ai.generate(promptExpiration);
     return text || "Generazione ricetta fallita.";
@@ -163,12 +214,23 @@ export const recipeExpirationFlow = ai.defineFlow(
 // ============================================================================
 // 2. FLOW: RECIPE FROM SELECTED INGREDIENTS
 // ============================================================================
-export const RecipeFromIngredientsInputSchema = z.array(
+export const RecipeFromIngredientsInputSchema = z.union([
+  z.array(
+    z.object({
+      nome: z.string(),
+      quantita: z.string(),
+    })
+  ),
   z.object({
-    nome: z.string(),
-    quantita: z.string(),
-  })
-);
+    prodotti: z.array(
+      z.object({
+        nome: z.string(),
+        quantita: z.string(),
+      })
+    ),
+    userDietaryContext: z.string().optional(),
+  }),
+]);
 
 export const recipeFromIngredientsFlow = ai.defineFlow(
   {
@@ -176,7 +238,10 @@ export const recipeFromIngredientsFlow = ai.defineFlow(
     inputSchema: RecipeFromIngredientsInputSchema,
     outputSchema: z.string(),
   },
-  async (prodotti) => {
+  async (input) => {
+    const prodotti = Array.isArray(input) ? input : input.prodotti;
+    const dietaryContext = Array.isArray(input) ? "" : input.userDietaryContext || "";
+
     if (!prodotti || prodotti.length === 0) {
       return "Nessun ingrediente selezionato dalla dispensa.";
     }
@@ -184,7 +249,10 @@ export const recipeFromIngredientsFlow = ai.defineFlow(
     const ingredientiFormattati = prodotti
       .map((p) => `${p.quantita} di ${p.nome}`)
       .join(", ");
-    const promptSelected = `Sei uno chef esperto. L'utente ha selezionato i seguenti ingredienti dalla sua dispensa: ${ingredientiFormattati}. Crea una ricetta gustosa per utilizzarli al meglio. Cerca di essere creativo ma pratico.`;
+    let promptSelected = `Sei uno chef esperto. L'utente ha selezionato i seguenti ingredienti dalla sua dispensa: ${ingredientiFormattati}. Crea una ricetta gustosa per utilizzarli al meglio. Cerca di essere creativo ma pratico.`;
+    if (dietaryContext) {
+      promptSelected += `\n${dietaryContext}\nRISPETTA RIGOROSAMENTE le preferenze alimentari e allergie specificate sopra.`;
+    }
 
     const { text } = await ai.generate(promptSelected);
     return text || "Generazione ricetta fallita.";
@@ -213,6 +281,7 @@ export const RecipeChatbotInputSchema = z.object({
       })
     )
     .optional(),
+  userDietaryContext: z.string().optional(),
 });
 
 const promptChefRole = `Sei uno chef esperto e un assistente culinario personale. Il tuo obiettivo è aiutare l'utente con ricette deliziose, consigli pratici e idee per ridurre gli sprechi.
@@ -221,7 +290,8 @@ Regole fondamentali di formattazione della ricetta:
 - Intestazione principale: inizia con '# Nome Ricetta' (senza prefissi numerici come '1.' o categorie come 'Per i Dolci:').
 - Sezione Ingredienti: intitola '## Ingredienti' ed elenca ciascun ingrediente su una riga separata con punto elenco (- Quantità Nome). Non inserire MAI più ingredienti diversi sulla stessa riga separati da virgole.
 - Sezione Preparazione: intitola '## Preparazione' ed elenca i passaggi numerati (1. Passaggio, 2. Passaggio).
-- Note o consigli di servizio: se presenti, inseriscili alla fine sotto '## Consigli dello Chef' e MAI all'interno della lista degli ingredienti.`;
+- Note o consigli di servizio: se presenti, inseriscili alla fine sotto '## Consigli dello Chef' e MAI all'interno della lista degli ingredienti.
+- Se l'utente ha preferenze alimentari, allergie o principi memorizzati, applicali con scrupolo assoluto e indica eventuali sostituzioni idonee.`;
 
 export const recipeChatbotFlow = ai.defineFlow(
   {
@@ -229,7 +299,7 @@ export const recipeChatbotFlow = ai.defineFlow(
     inputSchema: RecipeChatbotInputSchema,
     outputSchema: z.string(),
   },
-  async ({ promptChatbot, history = [], prodotti }) => {
+  async ({ promptChatbot, history = [], prodotti, userDietaryContext }) => {
     if (!promptChatbot || !promptChatbot.trim()) {
       return "Scrivi una domanda o una richiesta culinaria per iniziare.";
     }
@@ -242,7 +312,10 @@ export const recipeChatbotFlow = ai.defineFlow(
       contextDispensa = ` Contesto aggiuntivo: l'utente ha attualmente a disposizione nella sua dispensa i seguenti ingredienti: ${ingredientiFormattati}. Quando suggerisci una ricetta o rispondi, tieni a mente questi ingredienti e cerca di dare la priorità a ciò che l'utente ha già, se pertinente alla sua richiesta.`;
     }
 
-    const systemPrompt = promptChefRole + contextDispensa;
+    let systemPrompt = promptChefRole + contextDispensa;
+    if (userDietaryContext) {
+      systemPrompt += `\n${userDietaryContext}\n`;
+    }
 
     const messages = [
       { role: "system" as const, content: [{ text: systemPrompt }] },
@@ -639,11 +712,27 @@ Rispondi RIGOROSAMENTE con un oggetto JSON valido:
         typeof it.monthsDuration === "number" && it.monthsDuration > 0 ? it.monthsDuration : 3;
 
       if (safeExistingProducts.length > 0) {
+        // Match preliminare con lemmatizzazione italiana per gestire singolari/plurali (es. banana vs banane)
+        const fakeProducts: Product[] = safeExistingProducts.map((p) => ({
+          productId: p.id,
+          productName: p.name,
+          productQuantity: p.quantity,
+          productCategory: p.category,
+          addToShoppingList: false,
+          productCreatedAt: null as any,
+          productPantryId: "",
+        }));
+
+        const pantryMatch = findPantryMatch(rawName, fakeProducts);
+        const matchedByMatcher = pantryMatch.matched && pantryMatch.matchedProduct;
+
         const lowerName = rawName.toLowerCase();
-        const found = safeExistingProducts.find((p) => {
-          const pLower = p.name.toLowerCase();
-          return p.id === matchedId || pLower === lowerName || pLower.includes(lowerName) || lowerName.includes(pLower);
-        });
+        const found =
+          (matchedByMatcher ? safeExistingProducts.find((p) => p.id === matchedByMatcher.productId) : null) ||
+          safeExistingProducts.find((p) => {
+            const pLower = p.name.toLowerCase();
+            return p.id === matchedId || pLower === lowerName || pLower.includes(lowerName) || lowerName.includes(pLower);
+          });
 
         if (found) {
           matchedId = found.id;
@@ -895,6 +984,7 @@ export interface PantryCopilotContext {
     quantity: number;
     expiryDateStr?: string;
   }[];
+  userDietaryContext?: string;
 }
 
 export interface PantryCopilotResult {
@@ -920,6 +1010,7 @@ export const PantryCopilotInputSchema = z.object({
       categories: z.array(z.string()).optional(),
       products: z.array(z.any()).optional(),
       expiringProducts: z.array(z.any()).optional(),
+      userDietaryContext: z.string().optional(),
     })
     .optional()
     .default({}),
@@ -964,7 +1055,7 @@ export const pantryCopilotFlow = ai.defineFlow(
       (context.categories || []).join(", ") ||
       "Pasta, Carne, Pesce, Latticini, Frutta, Verdura, Bevande, Surgelati, Dispensa, Altro";
 
-    const systemPrompt = `Sei l'Assistente AI ufficiale della dispensa ("Pantry Copilot"). Il tuo compito è aiutare l'utente a gestire la sua dispensa casalinga, ridurre gli sprechi alimentari, rispondere a domande sui cibi disponibili, suggerire idee per i pasti e proporre modifiche alla dispensa o alla lista della spesa.
+    let systemPrompt = `Sei l'Assistente AI ufficiale della dispensa ("Pantry Copilot"). Il tuo compito è aiutare l'utente a gestire la sua dispensa casalinga, ridurre gli sprechi alimentari, rispondere a domande sui cibi disponibili, suggerire idee per i pasti e proporre modifiche alla dispensa o alla lista della spesa.
 
 DISPENSA ATTUALE: "${context.pantryName || "Mia Dispensa"}"
 CATEGORIE DISPONIBILI: ${categoriesStr}
@@ -973,16 +1064,32 @@ ALIMENTI IN DISPENSA:
 ${productsListStr || "Nessun prodotto attualmente registrato."}
 
 ALIMENTI IN SCADENZA IMMINENTE:
-${expiringListStr || "Nessun alimento in scadenza critica."}
+${expiringListStr || "Nessun alimento in scadenza critica."}`;
 
-REGOLE ESSENZIALI:
+    if (context.userDietaryContext) {
+      systemPrompt += `\n${context.userDietaryContext}\n`;
+    }
+
+    systemPrompt += `\nREGOLE ESSENZIALI:
 1. Sii chiaro, empatico, amichevole e sintetico. Usa Markdown per formattare elenchi o suggerimenti.
 2. Rispondi SEMPRE in lingua italiana.
 3. Se l'utente fa una richiesta puramente informativa (es. "Cosa posso cucinare stasera?", "Cosa sta per scadere?", "Ho del latte?"), rispondi dettagliatamente usando le scorte fornite sopra, e lascia l'array "proposedActions" VUOTO ([]).
 4. Se l'utente esprime un'intenzione operativa di MODIFICA della dispensa o della spesa (es. "Ho comprato...", "Aggiungi...", "Abbiamo finito...", "Ho aperto...", "Ho congelato...", "Metti nella lista della spesa..."), NON applicare modifiche a scatola chiusa: formula una risposta naturale di conferma e inserisci l'azione corrispondente nell'array "proposedActions". L'utente potrà poi approvarla cliccando sul pulsante di conferma nella chat.
-5. Tipologie per "proposedActions":
-   - "add_product": quando l'utente compra o porta a casa alimenti nuovi. Campi payload: productName, productQuantity (numero, default 1), productUnit ("pz", "kg", "g", "l"), productCategory (una tra le categorie disponibili), productExpiryDate (stimata YYYY-MM-DD se applicabile).
-   - "update_quantity": variazione della quantità totale di un prodotto esistente. Usa il campo productId individuato dall'elenco. Campi payload: productId, productName, productQuantity (nuovo totale).
+5. RICONCILIAZIONE E DEDUPLICAZIONE PRODOTTI (REGOLA CRUCIALE):
+   - Quando l'utente menziona alimenti acquistati o aggiunti (es. "Ho comprato una banana", "Ho preso due zucchine", "Aggiungi latte"):
+     Controlla con MASSIMA ATTENZIONE la lista ALIMENTI IN DISPENSA sopra.
+   - Se l'alimento corrisponde a un prodotto GIÀ PRESENTE in dispensa (tenendo conto di variazioni singolare/plurale come banana <-> Banane, zucchina <-> Zucchine, mela <-> Mele, o lievi varianti):
+     NON USARE MAI "add_product"! DEVI USARE "update_quantity":
+     * "productId": <ID esatto del prodotto trovato nell'elenco ALIMENTI IN DISPENSA>
+     * "productName": <Nome esatto del prodotto già registrato nella lista>
+     * "productQuantity": <quantità già presente + nuova quantità acquistata> (es. se in dispensa ci sono già 2 banane e l'utente compra 1 banana, la nuova quantità totale è 3)
+     * "title": "Aggiorna <Nome Prodotto Esistente>"
+     * "description": "Quantità totale: <totale> (in dispensa: <vecchia> + <nuova>)"
+     * Se l'utente ha specificato o è stimata una data di scadenza, includi "productExpiryDate" (formato YYYY-MM-DD).
+   - Usa "add_product" ESCLUSIVAMENTE per alimenti che NON sono presenti in dispensa.
+6. Tipologie per "proposedActions":
+   - "add_product": quando l'utente compra alimenti MAI registrati prima in dispensa. Campi payload: productName, productQuantity (numero, default 1), productUnit ("pz", "kg", "g", "l"), productCategory (una tra le categorie disponibili), productExpiryDate (stimata YYYY-MM-DD se applicabile).
+   - "update_quantity": variazione della quantità totale di un prodotto esistente. Usa il campo productId individuato dall'elenco. Campi payload: productId, productName, productQuantity (nuovo totale), productExpiryDate (se indicata una nuova data di scadenza).
    - "consume_product": quando un alimento esistente è stato consumato/finito. Campi payload: productId, productName.
    - "open_product": quando un alimento è stato aperto. Campi payload: productId, productName.
    - "freeze_product": quando un alimento viene riposto nel congelatore. Campi payload: productId, productName.
@@ -1024,10 +1131,13 @@ Rispondi RIGOROSAMENTE con un JSON valido:
       { role: "user" as const, content: [{ text: message }] },
     ];
 
-    const { text } = await ai.generate({
+    const { text } = await safeAiGenerate({
       messages,
       config: {
         responseMimeType: "application/json",
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
       },
     });
 
@@ -1042,14 +1152,54 @@ Rispondi RIGOROSAMENTE con un JSON valido:
     try {
       const parsed = extractJsonFromResponse<{ reply?: string; proposedActions?: any[] }>(text);
       const rawActions = Array.isArray(parsed.proposedActions) ? parsed.proposedActions : [];
-      const sanitizedActions: ProposedAction[] = rawActions.map((act: any, idx: number) => ({
-        id: act.id || `act_${Date.now()}_${idx}`,
-        type: act.type || "add_product",
-        title: act.title || "Modifica dispensa",
-        description: act.description || "",
-        status: act.status || "pending",
-        payload: act.payload || {},
+
+      // Prepara lista di Product per riconciliazione e deduplicazione automatica
+      const contextProductsAsProducts: Product[] = (context.products || []).map((p) => ({
+        productId: p.id,
+        productName: p.name,
+        productQuantity: p.quantity,
+        productUnitOfMeasure: p.unit,
+        productCategory: p.category,
+        addToShoppingList: false,
+        productCreatedAt: null as any,
+        productPantryId: "",
       }));
+
+      const sanitizedActions: ProposedAction[] = rawActions.map((act: any, idx: number) => {
+        let actType = act.type || "add_product";
+        const payload = { ...(act.payload || {}) };
+        let title = act.title || "Modifica dispensa";
+        let description = act.description || "";
+
+        // Riconciliazione automatica difensiva: se l'azione proposta è add_product ma il prodotto è già in dispensa
+        if (actType === "add_product" && payload.productName && contextProductsAsProducts.length > 0) {
+          const match = findPantryMatch(payload.productName, contextProductsAsProducts);
+          if (match.matched && match.matchedProduct) {
+            const existing = match.matchedProduct;
+            const addedQty =
+              typeof payload.productQuantity === "number" && payload.productQuantity > 0
+                ? payload.productQuantity
+                : 1;
+            const newTotalQty = (existing.productQuantity || 0) + addedQty;
+
+            actType = "update_quantity";
+            payload.productId = existing.productId || "";
+            payload.productName = existing.productName;
+            payload.productQuantity = newTotalQty;
+            title = `Aggiorna ${existing.productName}`;
+            description = `Quantità aggiornata: ${newTotalQty} (in dispensa: ${existing.productQuantity || 0} + ${addedQty})`;
+          }
+        }
+
+        return {
+          id: act.id || `act_${Date.now()}_${idx}`,
+          type: actType,
+          title,
+          description,
+          status: act.status || "pending",
+          payload,
+        };
+      });
 
       return {
         reply: parsed.reply || "Ecco le informazioni elaborate per la tua dispensa.",
@@ -1294,6 +1444,253 @@ Rispondi RIGOROSAMENTE con questo formato JSON:
       return {
         instructions: [notes || "Prepara gli ingredienti e procedi alla cottura secondo le indicazioni della ricetta."],
         prepTimeMinutes: 20,
+      };
+    }
+  }
+);
+
+// ============================================================================
+// FLOW: DETECT ATOMIC MEMORY PRINCIPLES FROM USER CONVERSATION
+// ============================================================================
+export const DetectMemoryPrinciplesInputSchema = z.object({
+  userMessage: z.string(),
+  existingPrinciples: z.array(z.string()).optional().default([]),
+});
+
+export interface DetectedMemoryFact {
+  text: string;
+  category: "diet" | "taste_dislike" | "taste_preference" | "cooking_habit" | "household" | "other";
+}
+
+export const detectMemoryPrinciplesFlow = ai.defineFlow(
+  {
+    name: "detectMemoryPrinciplesFlow",
+    inputSchema: DetectMemoryPrinciplesInputSchema,
+    outputSchema: z.object({
+      facts: z.array(
+        z.object({
+          text: z.string(),
+          category: z.enum([
+            "diet",
+            "taste_dislike",
+            "taste_preference",
+            "cooking_habit",
+            "household",
+            "other",
+          ]),
+        })
+      ),
+    }),
+  },
+  async ({ userMessage, existingPrinciples = [] }) => {
+    if (!userMessage || userMessage.trim().length < 8) {
+      return { facts: [] };
+    }
+
+    const existingBlock =
+      existingPrinciples.length > 0
+        ? `\nPRINCIPI GIÀ NOTI (NON RIPETERE O DUPLICARE):\n${existingPrinciples.map((p) => `- ${p}`).join("\n")}\n`
+        : "";
+
+    const prompt = `Sei un modulo specializzato nell'estrazione di memoria a lungo termine per PantryAI.
+Analizza il seguente messaggio dell'utente in una chat di cucina o gestione dispensa:
+"${userMessage}"
+${existingBlock}
+OBIETTIVO:
+Identifica se l'utente ha esplicitato una sua PREFERENZA, ABITUDINE, GUSTO O VINCOLO PERSONALE DURATURO.
+
+COSA ESTRARRE:
+1. Gusti o ingredienti sgraditi (es. "non sopporto l'aglio crudo", "odio i carciofi") -> "taste_dislike"
+2. Gusti o ingredienti amati (es. "adoro i cibi piccanti", "amo i risotti") -> "taste_preference"
+3. Vincoli dietetici o nutrizionali stabili (es. "sono celiaco", "evito i latticini", "non mangio maiale") -> "diet"
+4. Abitudini di cottura (es. "ho poco tempo e voglio pasti sotto i 20 minuti", "cucino al vapore") -> "cooking_habit"
+5. Contesto familiare/porzioni stabili (es. "la sera cucino per 2 persone", "c'è un bimbo piccolo a tavola") -> "household"
+6. Altro vincolo stabile -> "other"
+
+COSA NON ESTRARRE (IGNORARE TASSATIVAMENTE e restituire lista vuota):
+- Richieste estemporanee contingenti (es. "Cosa cucino stasera?", "Cosa ho in dispensa?", "Ho del latte?")
+- Azioni sulla spesa o sulla dispensa (es. "Ho comprato le uova", "Aggiungi pane", "Ho aperto il latte", "Abbiamo finito la pasta")
+- Commenti temporanei non stabili (es. "Oggi ho fame", "Grazie mille", "Buona idea")
+- Fatti che sono già espressi nei PRINCIPI GIÀ NOTI sopra.
+
+Se identifichi uno o più fatti nuovi:
+Formula ciascun fatto come una frase atomica chiara in terza persona o neutra (es: "Non gradisce l'aglio crudo nei piatti", "Preferisce preparazioni rapide sotto i 20 minuti", "Cucina regolarmente per 2 persone la sera").
+
+Rispondi RIGOROSAMENTE con JSON:
+{
+  "facts": [
+    {
+      "text": "Frase atomica del fatto",
+      "category": "diet" | "taste_dislike" | "taste_preference" | "cooking_habit" | "household" | "other"
+    }
+  ]
+}`;
+
+    const messages = [{ role: "user" as const, content: [{ text: prompt }] }];
+    try {
+      const { text } = await safeAiGenerate({
+        messages,
+        config: {
+          responseMimeType: "application/json",
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
+        },
+      });
+      if (!text) return { facts: [] };
+      const parsed = extractJsonFromResponse<{ facts?: DetectedMemoryFact[] }>(text);
+      const safeFacts = Array.isArray(parsed.facts)
+        ? parsed.facts.filter((f) => f && typeof f.text === "string" && f.text.trim())
+        : [];
+      return { facts: safeFacts };
+    } catch (err) {
+      console.warn("[detectMemoryPrinciplesFlow] Errore rilevamento memoria:", err);
+      return { facts: [] };
+    }
+  }
+);
+
+// ============================================================================
+// FLOW: SPECIALIZED MEMORY & PREFERENCES AGENT (Subagente Memoria dedicato)
+// ============================================================================
+export const MemorySpecialistInputSchema = z.object({
+  message: z.string(),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(["user", "assistant"]),
+        content: z.string(),
+      })
+    )
+    .optional()
+    .default([]),
+  userDietaryContext: z.string().optional().default(""),
+});
+
+export const memorySpecialistFlow = ai.defineFlow(
+  {
+    name: "memorySpecialistFlow",
+    inputSchema: MemorySpecialistInputSchema,
+    outputSchema: z.object({
+      reply: z.string(),
+      proposedActions: z.array(z.any()),
+      success: z.boolean(),
+    }),
+  },
+  async ({ message, history = [], userDietaryContext = "" }) => {
+    if (!message || !message.trim()) {
+      return {
+        reply: "Come posso aiutarti a personalizzare i tuoi gusti o la tua dieta?",
+        proposedActions: [],
+        success: true,
+      };
+    }
+
+    const systemPrompt = `Sei il Subagente Memoria e Preferenze di PantryAI. Il tuo unico obiettivo è riconoscere e gestire i gusti personali, le intolleranze, le diete e le abitudini alimentari dell'utente in modo rapido ed empatico.
+
+${userDietaryContext ? `CONTESTO DIETETICO ATTUALE DELL'UTENTE:\n${userDietaryContext}\n` : ""}
+
+REGOLE ESSENZIALI:
+1. Rispondi SEMPRE in lingua italiana, in modo cordiale, caldo e sintetico (1-2 frasi).
+2. Se l'utente esprime un gusto, una preferenza, un'avversione o una regola personale (es. "Mi piace la zucchina", "Odio i peperoni", "Sono celiaco", "Non mangio maiale", "Cucino per 2 persone"):
+   - Rispondi confermando di aver colto la preferenza e chiedendo se vuole memorizzarla ufficialmente.
+   - Genera RIGOROSAMENTE un'azione proposta nell'array "proposedActions" con:
+     * id: "act_mem_" + timestamp
+     * type: "add_memory_fact"
+     * title: "Memorizza preferenza"
+     * description: "<categoria breve>: <dettaglio>" (es. "Gusti preferiti: zucchina", "Gusto sgradito: peperoni", "Vincolo dietetico: celiachia")
+     * status: "pending"
+     * payload: {
+         "memoryFactText": "<frase atomica chiara e neutra, es. 'Gradisce le zucchine nei piatti', 'Non gradisce i peperoni'>",
+         "memoryFactCategory": "<una tra: 'diet', 'taste_dislike', 'taste_preference', 'cooking_habit', 'household', 'other'>"
+       }
+3. Se l'utente fa solo una domanda informativa sulla memoria o sui suoi gusti, rispondi con chiarezza e lascia "proposedActions" vuoto ([]).
+
+FORMATO RISPOSTA (RIGOROSAMENTE JSON):
+{
+  "reply": "Testo naturale della risposta...",
+  "proposedActions": [
+    {
+      "id": "act_mem_1",
+      "type": "add_memory_fact",
+      "title": "Memorizza preferenza",
+      "description": "Gusti preferiti: zucchina",
+      "status": "pending",
+      "payload": {
+        "memoryFactText": "Gradisce le zucchine nelle preparazioni",
+        "memoryFactCategory": "taste_preference"
+      }
+    }
+  ]
+}`;
+
+    const formattedHistory = history.slice(-4).map((h) => ({
+      role: h.role === "assistant" ? ("model" as const) : ("user" as const),
+      content: [{ text: h.content }],
+    }));
+
+    const messages = [
+      { role: "system" as const, content: [{ text: systemPrompt }] },
+      ...formattedHistory,
+      { role: "user" as const, content: [{ text: message }] },
+    ];
+
+    try {
+      const { text } = await safeAiGenerate({
+        messages,
+        config: {
+          responseMimeType: "application/json",
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
+        },
+      });
+
+      if (!text) {
+        return {
+          reply: "Ho annotato la tua preferenza. Vuoi salvarla?",
+          proposedActions: [],
+          success: false,
+        };
+      }
+
+      const parsed = extractJsonFromResponse<{ reply?: string; proposedActions?: any[] }>(text);
+      const rawActions = Array.isArray(parsed.proposedActions) ? parsed.proposedActions : [];
+      const sanitizedActions = rawActions.map((act: any, idx: number) => ({
+        id: act.id || `act_mem_${Date.now()}_${idx}`,
+        type: "add_memory_fact" as const,
+        title: act.title || "Memorizza preferenza",
+        description: act.description || "Salva nei principi personali dell'IA",
+        status: "pending" as const,
+        payload: {
+          memoryFactText: act.payload?.memoryFactText || act.description || message,
+          memoryFactCategory: act.payload?.memoryFactCategory || "taste_preference",
+        },
+      }));
+
+      return {
+        reply: parsed.reply || "Ho notato la tua preferenza. Vuoi che la memorizzi?",
+        proposedActions: sanitizedActions,
+        success: true,
+      };
+    } catch (err) {
+      console.error("[memorySpecialistFlow] Errore esecuzione subagente memoria:", err);
+      return {
+        reply: "Ho recepito la tua preferenza. Vuoi memorizzarla per i tuoi suggerimenti futuri?",
+        proposedActions: [
+          {
+            id: `act_mem_${Date.now()}`,
+            type: "add_memory_fact",
+            title: "Memorizza preferenza",
+            description: `Preferenza: ${message}`,
+            status: "pending",
+            payload: {
+              memoryFactText: message,
+              memoryFactCategory: "taste_preference",
+            },
+          },
+        ],
+        success: true,
       };
     }
   }

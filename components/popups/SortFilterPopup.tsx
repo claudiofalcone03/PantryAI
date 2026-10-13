@@ -13,25 +13,17 @@ import {
   PackageOpen,
   Snowflake,
 } from "lucide-react";
+import type { SortCriteria } from "@/types/firestore/userProfileType";
+export type { SortCriteria } from "@/types/firestore/userProfileType";
 
-export type SortCriteria =
-  | "none"
-  | "az"
-  | "za"
-  | "expiry_asc"
-  | "expiry_desc"
-  | "qty_desc"
-  | "qty_asc"
-  | "newest";
-
-interface SortOptionConfig {
+export interface SortOptionConfig {
   id: SortCriteria;
   label: string;
   description: string;
   icon: React.ElementType;
 }
 
-const SORT_OPTIONS: SortOptionConfig[] = [
+export const SORT_OPTIONS: SortOptionConfig[] = [
   {
     id: "az",
     label: "Alfabetico (A → Z)",

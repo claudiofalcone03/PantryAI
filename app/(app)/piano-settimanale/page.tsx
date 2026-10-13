@@ -41,13 +41,11 @@ import type {
   MealSlotType,
   MealSlotItem,
 } from "@/types/firestore/mealPlanType";
-import {
-  MealSlotCard,
-  MealDetailModal,
-  AssignMealModal,
-  WeeklyShoppingReviewModal,
-  MobileProfileButton,
-} from "@/components";
+import { MealSlotCard } from "@/components/meal-plan/MealSlotCard";
+import { MealDetailModal } from "@/components/meal-plan/MealDetailModal";
+import { AssignMealModal } from "@/components/meal-plan/AssignMealModal";
+import { WeeklyShoppingReviewModal } from "@/components/meal-plan/WeeklyShoppingReviewModal";
+import { MobileProfileButton } from "@/components/layout/MobileProfileButton";
 
 const MEAL_SLOTS: MealSlotType[] = ["colazione", "pranzo", "merenda", "cena"];
 
@@ -127,7 +125,8 @@ export default function PianoSettimanalePage() {
         setCurrentUser({ uid: user.uid });
         try {
           const userSnap = await getDoc(doc(db, "users", user.uid));
-          const pantryId = userSnap.data()?.userProfilePantryId;
+          const userData = userSnap.data();
+          const pantryId = userData?.userProfileCurrentPantryId || userData?.userProfilePantryIds?.[0] || userData?.userProfilePantryId;
           if (pantryId) {
             setCurrentPantryId(pantryId);
             const [allProducts, expiring] = await Promise.all([

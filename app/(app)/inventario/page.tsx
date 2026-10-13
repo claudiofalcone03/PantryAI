@@ -1,25 +1,31 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import { getProductsByPantry, updateProduct } from "@/lib/firestore/products";
+import { doc, getDoc, Timestamp } from "firebase/firestore";
+import { getProductsByPantry, updateProduct, freezeProduct, unfreezeProduct } from "@/lib/firestore/products";
+import { addProductHistoryLog } from "@/lib/firestore/productHistory";
 import { type Product } from "@/types/firestore/productType";
 import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
-import {
-  InventoryTopBar,
-  ProductListItem,
-  ProductEditPopup,
-  ProductAddPopup,
-  BarcodeScannerPopup,
-  ManageCategoriesPopup,
-  VisionReviewSheetPopup,
-  SortFilterPopup,
-  ProductListItemSkeleton,
-  Skeleton,
-} from "@/components";
+import { InventoryTopBar } from "@/components/layout/InventoryTopBar";
+import { ProductListItem } from "@/components/items/ProductListItem";
+import { ProductEditPopup } from "@/components/popups/ProductEditPopup";
+import { ProductAddPopup } from "@/components/popups/ProductAddPopup";
+import { ManageCategoriesPopup } from "@/components/popups/ManageCategoriesPopup";
+import { VisionReviewSheetPopup } from "@/components/popups/VisionReviewSheetPopup";
+import { SortFilterPopup } from "@/components/popups/SortFilterPopup";
+import { ProductListItemSkeleton } from "@/components/skeletons/ProductListItemSkeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { RemoveQuantityPopup } from "@/components/popups/RemoveQuantityPopup";
+import { FreezeProductPopup } from "@/components/popups/FreezeProductPopup";
 import type { SortCriteria } from "@/components/popups/SortFilterPopup";
-import Link from "next/link";
+import { updateInventorySortPreference, STORAGE_KEY_INVENTORY_SORT, STORAGE_KEY_FOOD_WASTE_TELEMETRY } from "@/lib/firestore/userProfile";
+
+const BarcodeScannerPopup = dynamic(
+  () => import("@/components/popups/BarcodeScannerPopup").then((mod) => mod.BarcodeScannerPopup),
+  { ssr: false }
+);
 import {
   Search,
   PackageOpen,
@@ -34,9 +40,9 @@ import {
   Camera,
 } from "lucide-react";
 import { getEffectiveExpiryDate } from "@/lib/firestore/pantries";
-import type { DetectedProductItem } from "@/lib/genkit/genkit";
-import { saveCachedProducts, getCachedProducts } from "@/lib/offline/indexedDb";
-import { CATEGORY_FALLBACK_EMOJIS, getFoodIcon } from "@/lib/utils/foodIcons";
+import type { DetectedProductItem } from "@/lib/genkit/types";
+import { saveCachedProducts, getCachedProducts, enqueueOfflineMutation } from "@/lib/offline/indexedDb";
+import { CATEGORY_FALLBACK_EMOJIS } from "@/lib/utils/foodIcons";
 
 export default function InventarioPage() {
   const [loading, setLoading] = useState(true);
@@ -56,7 +62,12 @@ export default function InventarioPage() {
     try {
       const saved = localStorage.getItem("inventory_view_mode");
       if (saved === "list" || saved === "grid") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setViewMode(saved);
+      }
+      const savedSort = localStorage.getItem(STORAGE_KEY_INVENTORY_SORT) as SortCriteria | null;
+      if (savedSort) {
+        setSortCriteria(savedSort);
       }
     } catch {}
   }, []);
@@ -85,6 +96,27 @@ export default function InventarioPage() {
   const [currentPantryId, setCurrentPantryId] = useState<string>("");
   const [nowTimestamp, setNowTimestamp] = useState<number>(0);
 
+  // Stati per modali singleton a livello di pagina (ottimizzazione rendering)
+  const [decreaseModalProduct, setDecreaseModalProduct] = useState<Product | null>(null);
+  const [freezeModalProduct, setFreezeModalProduct] = useState<Product | null>(null);
+  const [isWasteTelemetryEnabled, setIsWasteTelemetryEnabled] = useState(true);
+
+  // Sincronizza preferenza telemetria spreco alimentare
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const checkTelemetry = () => {
+      const stored = localStorage.getItem(STORAGE_KEY_FOOD_WASTE_TELEMETRY);
+      setIsWasteTelemetryEnabled(stored !== "false");
+    };
+    checkTelemetry();
+    window.addEventListener("food-waste-telemetry-changed", checkTelemetry);
+    window.addEventListener("storage", checkTelemetry);
+    return () => {
+      window.removeEventListener("food-waste-telemetry-changed", checkTelemetry);
+      window.removeEventListener("storage", checkTelemetry);
+    };
+  }, []);
+
   const fetchInventoryData = React.useCallback(async () => {
     if (!auth.currentUser) return;
 
@@ -92,6 +124,14 @@ export default function InventarioPage() {
       const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
       const userData = userDoc.data();
       const pantryIdToFetch = userData?.userProfileCurrentPantryId;
+
+      if (userData?.inventorySortCriteria) {
+        const profileSort = userData.inventorySortCriteria as SortCriteria;
+        setSortCriteria(profileSort);
+        try {
+          localStorage.setItem(STORAGE_KEY_INVENTORY_SORT, profileSort);
+        } catch {}
+      }
 
       if (!pantryIdToFetch) {
         setLoading(false);
@@ -164,16 +204,175 @@ export default function InventarioPage() {
     };
     window.addEventListener("inventory-updated", handleUpdate);
 
+    const handleSortUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ sort: SortCriteria }>;
+      if (customEvent.detail?.sort) {
+        setSortCriteria(customEvent.detail.sort);
+      }
+    };
+    window.addEventListener("inventory-sort-changed", handleSortUpdate);
+
     return () => {
       mounted = false;
       window.removeEventListener("inventory-updated", handleUpdate);
+      window.removeEventListener("inventory-sort-changed", handleSortUpdate);
     };
   }, [fetchInventoryData]);
+
+  // Salvataggio ordinamento preferito (profilo utente + locale)
+  const handleSelectSort = (newSort: SortCriteria) => {
+    setSortCriteria(newSort);
+    if (auth.currentUser) {
+      updateInventorySortPreference(auth.currentUser.uid, newSort).catch((err) =>
+        console.warn("Errore salvataggio ordinamento nel profilo:", err)
+      );
+    } else {
+      try {
+        localStorage.setItem(STORAGE_KEY_INVENTORY_SORT, newSort);
+      } catch {}
+    }
+  };
 
   // Apertura popup modifica prodotto
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
     setPopUpOpen(true);
+  };
+
+  // Handler per modali singleton Decremento e Congelamento a livello di pagina
+  const handleResolveDecrease = async (e: React.MouseEvent, resolution: "consumed" | "wasted") => {
+    e.stopPropagation();
+    const product = decreaseModalProduct;
+    if (!product || !product.productId) return;
+    const productId = product.productId;
+
+    const currentQty = product.productQuantity ?? 0;
+    const newQty = Math.max(0, currentQty - 1);
+
+    setDecreaseModalProduct(null);
+
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueOfflineMutation({
+          type: "UPDATE_PRODUCT_QTY",
+          pantryId: product.productPantryId || currentPantryId,
+          docId: productId,
+          payload: { quantity: newQty, resolution },
+          createdAt: Date.now(),
+        });
+      } else {
+        await updateProduct(productId, { productQuantity: newQty });
+
+        let finalResolution: "consumed" | "wasted" | "rescued" = resolution;
+        const eff = getEffectiveExpiryDate(product);
+        if (resolution === "consumed" && eff) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const expCopy = new Date(eff);
+          expCopy.setHours(0, 0, 0, 0);
+          const diffDays = Math.ceil((expCopy.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays <= 3) {
+            finalResolution = "rescued";
+          }
+        }
+
+        const targetPantryId = product.productPantryId || currentPantryId;
+        if (targetPantryId) {
+          await addProductHistoryLog(targetPantryId, {
+            productId: productId,
+            productName: product.productName,
+            productCategory: product.productCategory ?? "",
+            carbonFootprint: product.carbonFootprint ?? 0,
+            quantityHistory: 1,
+            resolution: finalResolution,
+          });
+        }
+      }
+      fetchInventoryData();
+    } catch (err) {
+      console.error("Errore decremento quantità:", err);
+    }
+  };
+
+  const handleConfirmFreeze = async (months: number, customDate?: Date) => {
+    const product = freezeModalProduct;
+    if (!product || !product.productId) return;
+    const productId = product.productId;
+    setFreezeModalProduct(null);
+
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        const now = new Date();
+        const frozenExpiry = customDate || new Date(now.getFullYear(), now.getMonth() + months, now.getDate());
+        await enqueueOfflineMutation({
+          type: "FREEZE_PRODUCT",
+          pantryId: product.productPantryId || currentPantryId,
+          docId: productId,
+          payload: {
+            frozenAt: now.toISOString(),
+            frozenExpiryAt: frozenExpiry.toISOString(),
+            monthsDuration: months,
+            originalExpiryDateBeforeFreeze:
+              product.originalExpiryDateBeforeFreeze?.toDate?.()?.toISOString?.() ||
+              product.expiryDateProduct?.toDate?.()?.toISOString?.() ||
+              null,
+          },
+          createdAt: Date.now(),
+        });
+      } else {
+        await freezeProduct(productId, months, customDate);
+      }
+      fetchInventoryData();
+    } catch (err) {
+      console.error("Errore congelamento prodotto:", err);
+    }
+  };
+
+  const handleConfirmUnfreeze = async (mode: "consume_soon" | "restore_original", hours: number) => {
+    const product = freezeModalProduct;
+    if (!product || !product.productId) return;
+    const productId = product.productId;
+    setFreezeModalProduct(null);
+
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (mode === "consume_soon") {
+          const now = new Date();
+          const openedExpiry = new Date(now.getTime() + hours * 60 * 60 * 1000);
+          await enqueueOfflineMutation({
+            type: "UNFREEZE_PRODUCT",
+            pantryId: product.productPantryId || currentPantryId,
+            docId: productId,
+            payload: {
+              mode: "consume_soon",
+              unfrozenAt: now.toISOString(),
+              openedExpiryAt: openedExpiry.toISOString(),
+              shelfLifeDays: Math.ceil(hours / 24),
+            },
+            createdAt: Date.now(),
+          });
+        } else {
+          await enqueueOfflineMutation({
+            type: "UNFREEZE_PRODUCT",
+            pantryId: product.productPantryId || currentPantryId,
+            docId: productId,
+            payload: {
+              mode: "restore_original",
+              originalExpiryDate:
+                product.originalExpiryDateBeforeFreeze?.toDate?.()?.toISOString?.() ||
+                product.expiryDateProduct?.toDate?.()?.toISOString?.() ||
+                null,
+            },
+            createdAt: Date.now(),
+          });
+        }
+      } else {
+        await unfreezeProduct(productId, mode, hours);
+      }
+      fetchInventoryData();
+    } catch (err) {
+      console.error("Errore scongelamento prodotto:", err);
+    }
   };
 
   // Conteggio prodotti per categoria
@@ -230,93 +429,97 @@ export default function InventarioPage() {
     return { available, lowStock, outOfStock, frozen, expiring };
   }, [products, nowTimestamp]);
 
-  // Ricerca e filtri avanzati
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.productName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "" || p.productCategory === selectedCategory;
-    const matchesOpened = showOnlyOpened ? !!p.productOpenedAt : true;
-    const matchesFrozen = showOnlyFrozen ? Boolean(p.isFrozen) : true;
+  // Ricerca e filtri avanzati memoizzati
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchesSearch = p.productName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === "" || p.productCategory === selectedCategory;
+      const matchesOpened = showOnlyOpened ? !!p.productOpenedAt : true;
+      const matchesFrozen = showOnlyFrozen ? Boolean(p.isFrozen) : true;
 
-    const matchesExpiring = showOnlyExpiring
-      ? (() => {
-          if (nowTimestamp === 0) return true;
+      const matchesExpiring = showOnlyExpiring
+        ? (() => {
+            if (nowTimestamp === 0) return true;
+            const eff = getEffectiveExpiryDate(p);
+            if (!eff) return false;
+            const diffDays = (eff.getTime() - nowTimestamp) / (1000 * 60 * 60 * 24);
+            return diffDays <= 3;
+          })()
+        : true;
+
+      const matchesStatus = (() => {
+        if (statusFilter === "all") return true;
+        const qty = p.productQuantity || 0;
+        if (statusFilter === "available") return qty > 0;
+        if (statusFilter === "low_stock") return qty > 0 && qty <= 2;
+        if (statusFilter === "out_of_stock") return qty <= 0;
+        if (statusFilter === "frozen") return Boolean(p.isFrozen);
+        if (statusFilter === "expiring") {
+          if (nowTimestamp === 0) return false;
           const eff = getEffectiveExpiryDate(p);
           if (!eff) return false;
           const diffDays = (eff.getTime() - nowTimestamp) / (1000 * 60 * 60 * 24);
           return diffDays <= 3;
-        })()
-      : true;
-
-    const matchesStatus = (() => {
-      if (statusFilter === "all") return true;
-      const qty = p.productQuantity || 0;
-      if (statusFilter === "available") return qty > 0;
-      if (statusFilter === "low_stock") return qty > 0 && qty <= 2;
-      if (statusFilter === "out_of_stock") return qty <= 0;
-      if (statusFilter === "frozen") return Boolean(p.isFrozen);
-      if (statusFilter === "expiring") {
-        if (nowTimestamp === 0) return false;
-        const eff = getEffectiveExpiryDate(p);
-        if (!eff) return false;
-        const diffDays = (eff.getTime() - nowTimestamp) / (1000 * 60 * 60 * 24);
-        return diffDays <= 3;
-      }
-      return true;
-    })();
-
-    return (
-      matchesSearch &&
-      matchesCategory &&
-      matchesOpened &&
-      matchesExpiring &&
-      matchesFrozen &&
-      matchesStatus
-    );
-  });
-
-  // Ordinamento avanzato (alfabetico, scadenza, quantità, recenti)
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    if (sortCriteria === "none") return 0;
-
-    if (sortCriteria === "az") {
-      return (a.productName || "").localeCompare(b.productName || "", "it", { sensitivity: "base" });
-    }
-
-    if (sortCriteria === "za") {
-      return (b.productName || "").localeCompare(a.productName || "", "it", { sensitivity: "base" });
-    }
-
-    if (sortCriteria === "expiry_asc" || sortCriteria === "expiry_desc") {
-      const getExpiry = (product: Product) => {
-        const expiry = getEffectiveExpiryDate(product);
-        return expiry ? expiry.getTime() : Infinity;
-      };
-      const timeA = getExpiry(a);
-      const timeB = getExpiry(b);
-      return sortCriteria === "expiry_asc" ? timeA - timeB : timeB - timeA;
-    }
-
-    if (sortCriteria === "qty_desc") {
-      return (b.productQuantity || 0) - (a.productQuantity || 0);
-    }
-
-    if (sortCriteria === "qty_asc") {
-      return (a.productQuantity || 0) - (b.productQuantity || 0);
-    }
-
-    if (sortCriteria === "newest") {
-      const getCreated = (product: Product) => {
-        const raw = product.productCreatedAt as unknown;
-        if (raw && typeof raw === "object" && "toMillis" in raw && typeof (raw as { toMillis?: () => number }).toMillis === "function") {
-          return (raw as { toMillis: () => number }).toMillis();
         }
-        return 0;
-      };
-      return getCreated(b) - getCreated(a);
-    }
+        return true;
+      })();
 
-    return 0;
-  });
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesOpened &&
+        matchesExpiring &&
+        matchesFrozen &&
+        matchesStatus
+      );
+    });
+  }, [products, searchQuery, selectedCategory, showOnlyOpened, showOnlyFrozen, showOnlyExpiring, statusFilter, nowTimestamp]);
+
+  // Ordinamento avanzato memoizzato
+  const sortedProducts = useMemo(() => {
+    return [...filteredProducts].sort((a, b) => {
+      if (sortCriteria === "none") return 0;
+
+      if (sortCriteria === "az") {
+        return (a.productName || "").localeCompare(b.productName || "", "it", { sensitivity: "base" });
+      }
+
+      if (sortCriteria === "za") {
+        return (b.productName || "").localeCompare(a.productName || "", "it", { sensitivity: "base" });
+      }
+
+      if (sortCriteria === "expiry_asc" || sortCriteria === "expiry_desc") {
+        const getExpiry = (product: Product) => {
+          const expiry = getEffectiveExpiryDate(product);
+          return expiry ? expiry.getTime() : Infinity;
+        };
+        const timeA = getExpiry(a);
+        const timeB = getExpiry(b);
+        return sortCriteria === "expiry_asc" ? timeA - timeB : timeB - timeA;
+      }
+
+      if (sortCriteria === "qty_desc") {
+        return (b.productQuantity || 0) - (a.productQuantity || 0);
+      }
+
+      if (sortCriteria === "qty_asc") {
+        return (a.productQuantity || 0) - (b.productQuantity || 0);
+      }
+
+      if (sortCriteria === "newest") {
+        const getCreated = (product: Product) => {
+          const raw = product.productCreatedAt as unknown;
+          if (raw && typeof raw === "object" && "toMillis" in raw && typeof (raw as { toMillis?: () => number }).toMillis === "function") {
+            return (raw as { toMillis: () => number }).toMillis();
+          }
+          return 0;
+        };
+        return getCreated(b) - getCreated(a);
+      }
+
+      return 0;
+    });
+  }, [filteredProducts, sortCriteria]);
 
   if (loading) {
     return (
@@ -726,17 +929,23 @@ export default function InventarioPage() {
                   product={product}
                   onClick={() => handleProductClick(product)}
                   onProductUpdated={fetchInventoryData}
+                  isWasteTelemetryEnabled={isWasteTelemetryEnabled}
+                  onRequestDecrease={(p) => setDecreaseModalProduct(p)}
+                  onRequestFreeze={(p) => setFreezeModalProduct(p)}
                 />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 sm:gap-3.5 pb-24">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3.5 pb-24">
               {sortedProducts.map((product) => (
                 <ProductListItem
                   key={product.productId}
                   product={product}
                   onClick={() => handleProductClick(product)}
                   onProductUpdated={fetchInventoryData}
+                  isWasteTelemetryEnabled={isWasteTelemetryEnabled}
+                  onRequestDecrease={(p) => setDecreaseModalProduct(p)}
+                  onRequestFreeze={(p) => setFreezeModalProduct(p)}
                 />
               ))}
             </div>
@@ -842,7 +1051,7 @@ export default function InventarioPage() {
         isOpen={isSortFilterOpen}
         onClose={() => setIsSortFilterOpen(false)}
         currentSort={sortCriteria}
-        onSelectSort={(sort) => setSortCriteria(sort)}
+        onSelectSort={handleSelectSort}
         showOnlyExpiring={showOnlyExpiring}
         onToggleExpiring={() => setShowOnlyExpiring(!showOnlyExpiring)}
         showOnlyOpened={showOnlyOpened}
@@ -850,6 +1059,30 @@ export default function InventarioPage() {
         showOnlyFrozen={showOnlyFrozen}
         onToggleFrozen={() => setShowOnlyFrozen(!showOnlyFrozen)}
       />
+
+      {/* Popup Decremento Quantità Singleton (montato una sola volta a livello di pagina) */}
+      {decreaseModalProduct && (
+        <RemoveQuantityPopup
+          isOpen={Boolean(decreaseModalProduct)}
+          onClose={(e) => {
+            e?.stopPropagation?.();
+            setDecreaseModalProduct(null);
+          }}
+          productName={decreaseModalProduct.productName}
+          onResolve={handleResolveDecrease}
+        />
+      )}
+
+      {/* Popup Congelamento / Scongelamento Singleton (montato una sola volta a livello di pagina) */}
+      {freezeModalProduct && (
+        <FreezeProductPopup
+          isOpen={Boolean(freezeModalProduct)}
+          onClose={() => setFreezeModalProduct(null)}
+          product={freezeModalProduct}
+          onConfirmFreeze={handleConfirmFreeze}
+          onConfirmUnfreeze={handleConfirmUnfreeze}
+        />
+      )}
     </div>
   );
 }

@@ -10,12 +10,10 @@ import {
   Plus,
   CheckSquare,
   Square,
-  Sparkles,
 } from "lucide-react";
 import type { WeeklyMealPlan } from "@/types/firestore/mealPlanType";
 import type { Product } from "@/types/firestore/productType";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { addRawItemToShoppingList } from "@/lib/firestore/shoppingList";
 
 interface WeeklyShoppingReviewModalProps {
   isOpen: boolean;
@@ -166,17 +164,15 @@ export const WeeklyShoppingReviewModal: React.FC<WeeklyShoppingReviewModalProps>
       const itemsToAdd = aggregatedIngredients.filter((i) => selectedIds.has(i.id));
 
       for (const item of itemsToAdd) {
-        const qtyLabel = item.quantities.length > 0 ? ` (${item.quantities.join(", ")})` : "";
-        await addDoc(collection(db, "shoppingListItems"), {
-          listItemPantryId: pantryId,
-          listItemName: `${item.name}${qtyLabel}`,
-          listItemStatus: "toBuy",
-          listItemCreatedAt: serverTimestamp(),
+        const qtyLabel = item.quantities.length > 0 ? item.quantities.join(", ") : undefined;
+        await addRawItemToShoppingList(pantryId, item.name, {
+          unit: qtyLabel,
         });
       }
 
       setSuccessCount(itemsToAdd.length);
       window.dispatchEvent(new Event("shopping-list-updated"));
+      window.dispatchEvent(new Event("inventory-updated"));
 
       setTimeout(() => {
         onClose();

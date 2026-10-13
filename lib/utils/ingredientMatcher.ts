@@ -129,25 +129,32 @@ export function normalizeFoodItem(raw: string): {
 }
 
 /**
+ * Confronta due token alimentari:
+ * - Match esatto (es. "banana" === "banana")
+ * - O variazione morfologica minima di desinenza (es. "arachid" / "arachide", "yogurt" / "yogurth")
+ * Non consente MAI che una parola sia considerata uguale solo perché sottostringa casuale di un'altra (es. "vino" in "bovino", "mela" in "melanzana").
+ */
+export function isTokenMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  const minLen = Math.min(a.length, b.length);
+  const lenDiff = Math.abs(a.length - b.length);
+  if (minLen >= 4 && lenDiff <= 1 && (a.startsWith(b) || b.startsWith(a))) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Calcola l'indice di somiglianza Dice Coefficient tra due set di token o stringhe
  */
 function calculateTokenOverlap(tokensA: string[], tokensB: string[]): number {
   if (tokensA.length === 0 || tokensB.length === 0) return 0;
 
-  const setB = new Set(tokensB);
   let matches = 0;
 
   for (const token of tokensA) {
-    if (setB.has(token)) {
+    if (tokensB.some((b) => isTokenMatch(token, b))) {
       matches++;
-    } else {
-      // Controllo inclusione parziale (es. "arachid" in "arachide")
-      for (const b of tokensB) {
-        if (b.includes(token) || token.includes(b)) {
-          matches += 0.8;
-          break;
-        }
-      }
     }
   }
 
@@ -164,7 +171,7 @@ export interface PantryMatchResult {
 
 /**
  * Cerca un alimento specificato nella lista dei prodotti della dispensa
- * utilizzando matching esatto, lemmatizzazione e token overlap fuzzy.
+ * utilizzando matching esatto, lemmatizzazione e token overlap semantico rigoroso.
  */
 export function findPantryMatch(
   ingredientName: string,
@@ -189,7 +196,7 @@ export function findPantryMatch(
     const prodParsed = normalizeFoodItem(product.productName);
     if (prodParsed.tokens.length === 0) continue;
 
-    // 1. Match Esatto Normalizzato (es. "banana" === "banana")
+    // 1. Match Esatto Normalizzato (es. "banana" === "banana", "zucchine" === "zucchine")
     if (ingParsed.normalized === prodParsed.normalized) {
       return {
         matched: true,
@@ -202,20 +209,23 @@ export function findPantryMatch(
     // 2. Controllo inclusione token chiave primario (es. "burro d'arachidi" vs "burro d'arachidi calvè")
     // Se tutti i token dell'ingrediente sono presenti nel prodotto
     const allIngTokensInProd = ingParsed.tokens.every((token) =>
-      prodParsed.tokens.some((pToken) => pToken === token || pToken.includes(token) || token.includes(pToken))
+      prodParsed.tokens.some((pToken) => isTokenMatch(token, pToken))
     );
 
     if (allIngTokensInProd && ingParsed.tokens.length > 0) {
-      const score = 0.95;
-      if (score > highestScore) {
-        highestScore = score;
-        bestProduct = product;
-        matchReason = `Contiene tutti i termini in ${product.productName}`;
+      const ratio = ingParsed.tokens.length / prodParsed.tokens.length;
+      if (ratio >= 0.5) {
+        const score = 0.85 + 0.1 * ratio;
+        if (score > highestScore) {
+          highestScore = score;
+          bestProduct = product;
+          matchReason = `Contiene tutti i termini in ${product.productName}`;
+        }
       }
       continue;
     }
 
-    // 3. Controllo token overlap (es. "banane" -> "banana", "passata di pomodoro" -> "pomodoro")
+    // 3. Controllo token overlap (es. "banane chiquita" vs "banana", "passata di pomodoro" vs "pomodoro")
     const overlapScore = calculateTokenOverlap(ingParsed.tokens, prodParsed.tokens);
     if (overlapScore > highestScore) {
       highestScore = overlapScore;
@@ -224,8 +234,8 @@ export function findPantryMatch(
     }
   }
 
-  // Soglia di confidenza minima per considerare l'ingrediente presente
-  const CONFIDENCE_THRESHOLD = 0.55;
+  // Soglia di confidenza minima rigorosa per evitare falsi positivi
+  const CONFIDENCE_THRESHOLD = 0.65;
   const isMatched = highestScore >= CONFIDENCE_THRESHOLD && bestProduct !== undefined;
 
   return {

@@ -19,6 +19,9 @@ export interface Recipe {
   recipeAuthorName?: string;
   recipeSharedWithPantryId?: string | null;
   recipeIsAntiWaste?: boolean;
+  appliedDietaryRegime?: string | null; // es. "Celiaca", "Vegetariana", ecc.
+  appliedMemoryPrinciples?: string[] | null; // Principi atomici tenuti in conto dall'IA
   recipeCreatedAt?: Timestamp;
   recipeUpdatedAt?: Timestamp;
 }
+

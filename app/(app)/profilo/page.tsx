@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -6,14 +5,19 @@ import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { User, LogOut, Layers, FileDown, Trash, Pencil, Copy, DoorOpen, Plus, UserPlus, CheckCircle, Settings, Database, Bot, Key, Eye, EyeOff, RefreshCw, Bell, BellRing, BellOff, Send, Check, ChevronRight, Code2, Layout, CalendarDays } from "lucide-react";
+import { User, LogOut, Layers, FileDown, Trash, Pencil, Copy, DoorOpen, Plus, UserPlus, CheckCircle, Settings, RefreshCw, Bell, BellRing, BellOff, Send, Check, ChevronRight, Code2, Layout, CalendarDays, Leaf, BarChart3, ArrowUpDown, Sparkles } from "lucide-react";
 import Image from "next/image";
-import type { UserProfile, UserNotificationPreferences } from "@/types/firestore/userProfileType";
+import type { UserProfile, UserNotificationPreferences, SortCriteria } from "@/types/firestore/userProfileType";
 import type { Pantry } from "@/types/firestore/pantryType";
+import type { UserDietaryPreferences } from "@/types/firestore/userMemoryType";
+import { DIETARY_REGIMES_INFO } from "@/types/firestore/userMemoryType";
 import { getUserPantries, leavePantry, createPantry, joinPantryWithCode, setCurrentPantry } from "@/lib/firestore/pantries";
-import { updateNotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES, ALL_APP_SCREENS, DEFAULT_NAV_TABS, DEFAULT_DESKTOP_NAV_TABS } from "@/lib/firestore/userProfile";
+import { updateNotificationPreferences, DEFAULT_NOTIFICATION_PREFERENCES, ALL_APP_SCREENS, DEFAULT_NAV_TABS, DEFAULT_DESKTOP_NAV_TABS, updateFoodWasteTelemetryPreference, STORAGE_KEY_FOOD_WASTE_TELEMETRY, updateInventorySortPreference, STORAGE_KEY_INVENTORY_SORT } from "@/lib/firestore/userProfile";
+import { SORT_OPTIONS } from "@/components/popups/SortFilterPopup";
 import { requestAndRegisterFcmToken, disablePushNotifications, getNotificationPermissionState } from "@/lib/notifications/fcmClient";
-import { Skeleton, PantryCardSkeleton, NavCustomizationPopup } from "@/components";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { PantryCardSkeleton } from "@/components/skeletons/PantryCardSkeleton";
+import { NavCustomizationPopup } from "@/components/navigation/NavCustomizationPopup";
 
 export default function ProfilePage() {
 	const router = useRouter();
@@ -38,6 +42,18 @@ export default function ProfilePage() {
 	const [navTabs, setNavTabs] = useState<string[]>(DEFAULT_NAV_TABS);
 	const [desktopNavTabs, setDesktopNavTabs] = useState<string[]>(DEFAULT_DESKTOP_NAV_TABS);
 	const [isNavPopupOpen, setIsNavPopupOpen] = useState<boolean>(false);
+
+	// Stato per telemetria spreco alimentare & popup 'Mangiato/Buttato'
+	const [foodWasteTelemetry, setFoodWasteTelemetry] = useState<boolean>(true);
+	const [telemetryLoading, setTelemetryLoading] = useState<boolean>(false);
+
+	// Stato per ordinamento preferito della dispensa
+	const [inventorySort, setInventorySort] = useState<SortCriteria>("none");
+	const [sortLoading, setSortLoading] = useState<boolean>(false);
+
+	// Stato per Regime Alimentare & Memoria IA
+	const [dietaryPrefs, setDietaryPrefs] = useState<UserDietaryPreferences | null>(null);
+	const [memoryCount, setMemoryCount] = useState<number | null>(null);
 
 	useEffect(() => {
 		const fetchUser = async () => {
@@ -89,6 +105,31 @@ export default function ProfilePage() {
 								} catch {}
 							}
 						}
+
+						if (data.foodWasteTelemetryEnabled !== undefined && data.foodWasteTelemetryEnabled !== null) {
+							setFoodWasteTelemetry(Boolean(data.foodWasteTelemetryEnabled));
+						} else {
+							const localVal = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY_FOOD_WASTE_TELEMETRY) : null;
+							if (localVal !== null) {
+								setFoodWasteTelemetry(localVal !== "false");
+							}
+						}
+
+						if (data.inventorySortCriteria) {
+							setInventorySort(data.inventorySortCriteria);
+						} else {
+							const localSort = typeof window !== "undefined" ? (localStorage.getItem(STORAGE_KEY_INVENTORY_SORT) as SortCriteria) : null;
+							if (localSort) {
+								setInventorySort(localSort);
+							}
+						}
+
+						if (data.dietaryPreferences) {
+							setDietaryPrefs(data.dietaryPreferences);
+						}
+						if (typeof data.memoryFactsCount === "number") {
+							setMemoryCount(data.memoryFactsCount);
+						}
 					}
 
 					const userPantries = await getUserPantries(user.uid); //Funzione importata 
@@ -115,7 +156,52 @@ export default function ProfilePage() {
 		};
 
 		fetchUser();
+
+		const handleSortChanged = (e: Event) => {
+			const customEvent = e as CustomEvent<{ sort: SortCriteria }>;
+			if (customEvent.detail?.sort) {
+				setInventorySort(customEvent.detail.sort);
+			}
+		};
+		window.addEventListener("inventory-sort-changed", handleSortChanged);
+
+		return () => {
+			window.removeEventListener("inventory-sort-changed", handleSortChanged);
+		};
 	}, []);
+
+	// Gestione selezione ordinamento preferito per la dispensa
+	const handleUpdateInventorySort = async (newSort: SortCriteria) => {
+		if (sortLoading) return;
+		setInventorySort(newSort);
+		setSortLoading(true);
+		try {
+			const user = auth.currentUser;
+			if (user) {
+				await updateInventorySortPreference(user.uid, newSort);
+			}
+		} catch (error) {
+			console.error("Errore salvataggio ordinamento preferito:", error);
+		} finally {
+			setSortLoading(false);
+		}
+	};
+
+	// Gestione attivazione / disattivazione telemetria spreco alimentare
+	const handleToggleFoodWasteTelemetry = async () => {
+		if (!auth.currentUser || telemetryLoading) return;
+		const nextVal = !foodWasteTelemetry;
+		setTelemetryLoading(true);
+		setFoodWasteTelemetry(nextVal);
+		try {
+			await updateFoodWasteTelemetryPreference(auth.currentUser.uid, nextVal);
+		} catch (err) {
+			console.error("Errore aggiornamento preferenza telemetria spreco:", err);
+			setFoodWasteTelemetry(!nextVal);
+		} finally {
+			setTelemetryLoading(false);
+		}
+	};
 
 	// Gestione attivazione / disattivazione notifiche push
 	const handleTogglePushNotifications = async () => {
@@ -403,6 +489,32 @@ export default function ProfilePage() {
 										Modifica dati profilo (Prossimamente)
 									</span>
 								</div>
+							</button>
+
+							<button
+								onClick={() => router.push("/profilo/memoria")}
+								className="w-full flex items-center justify-between p-3 rounded-2xl bg-emerald-50/60 hover:bg-emerald-100/70 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/40 border border-emerald-200/80 dark:border-emerald-800/60 transition-all text-left group shadow-2xs"
+							>
+								<div className="flex items-center space-x-3 min-w-0">
+									<div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+										<Sparkles className="w-4 h-4" />
+									</div>
+									<div className="min-w-0">
+										<div className="flex items-center gap-1.5">
+											<span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
+												Memoria & Preferenze IA
+											</span>
+											<span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-200/70 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-200 shrink-0">
+												ZenChef
+											</span>
+										</div>
+										<p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+											{dietaryPrefs?.primaryRegime ? DIETARY_REGIMES_INFO[dietaryPrefs.primaryRegime]?.label : "Mediterranea"}
+											{typeof memoryCount === "number" ? ` • ${memoryCount} principi` : " • Personalizza dieta"}
+										</p>
+									</div>
+								</div>
+								<ChevronRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400 group-hover:translate-x-0.5 transition-all shrink-0" />
 							</button>
 
 							<button
@@ -719,6 +831,131 @@ export default function ProfilePage() {
 										</div>
 									</div>
 								)}
+							</div>
+						</div>
+
+						{/* Tracciamento Spreco Alimentare & Telemetria */}
+						<div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-2xs overflow-hidden">
+							<div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+								<div className="flex items-center space-x-3">
+									<div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+										<Leaf className="w-5 h-5" />
+									</div>
+									<div>
+										<h2 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+											<span>Telemetria Spreco & Consumi</span>
+											<span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+												Eco
+											</span>
+										</h2>
+										<p className="text-xs text-zinc-500 dark:text-zinc-400">
+											Rileva gli alimenti consumati o buttati per calcolare l&apos;impatto ecologico e la CO₂
+										</p>
+									</div>
+								</div>
+							</div>
+
+							<div className="p-5">
+								<div className="flex items-center justify-between p-3.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60">
+									<div className="flex items-center space-x-3 pr-2">
+										<div className={`p-2 rounded-xl shrink-0 ${foodWasteTelemetry ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"}`}>
+											<BarChart3 className="w-4 h-4" />
+										</div>
+										<div>
+											<p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+												{foodWasteTelemetry ? "Popup 'Mangiato/Buttato' Attivo" : "Popup 'Mangiato/Buttato' Disattivato"}
+											</p>
+											<p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+												{foodWasteTelemetry
+													? "Ogni decremento con il tasto '-' chiede conferma (mangiato o buttato) e aggiorna lo storico spreco."
+													: "Il tasto '-' decrementa subito la quantità senza popup né registrazione nello storico spreco."}
+											</p>
+										</div>
+									</div>
+
+									<button
+										onClick={handleToggleFoodWasteTelemetry}
+										disabled={telemetryLoading}
+										className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+											foodWasteTelemetry
+												? "bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50"
+												: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+										} disabled:opacity-50`}
+									>
+										{telemetryLoading ? (
+											<RefreshCw className="w-3.5 h-3.5 animate-spin" />
+										) : foodWasteTelemetry ? (
+											<span>Disattiva</span>
+										) : (
+											<span>Attiva</span>
+										)}
+									</button>
+								</div>
+							</div>
+						</div>
+
+						{/* Ordinamento Predefinito Dispensa */}
+						<div className="bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200/90 dark:border-zinc-800/90 shadow-2xs overflow-hidden">
+							<div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+								<div className="flex items-center space-x-3">
+									<div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+										<ArrowUpDown className="w-5 h-5" />
+									</div>
+									<div>
+										<h2 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+											<span>Ordinamento Dispensa</span>
+											<span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+												Profilo
+											</span>
+										</h2>
+										<p className="text-xs text-zinc-500 dark:text-zinc-400">
+											Scegli il criterio di ordinamento preferito da applicare automaticamente all&apos;inventario
+										</p>
+									</div>
+								</div>
+							</div>
+
+							<div className="p-5">
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+									{SORT_OPTIONS.map((opt) => {
+										const Icon = opt.icon;
+										const isSelected = inventorySort === opt.id;
+										return (
+											<button
+												key={opt.id}
+												type="button"
+												onClick={() => handleUpdateInventorySort(opt.id)}
+												disabled={sortLoading}
+												className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+													isSelected
+														? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500 text-indigo-950 dark:text-indigo-100 font-medium shadow-xs ring-1 ring-indigo-500/30"
+														: "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+												}`}
+											>
+												<div className="flex items-center gap-2.5 min-w-0">
+													<div
+														className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+															isSelected
+																? "bg-indigo-600 text-white"
+																: "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+														}`}
+													>
+														<Icon className="w-3.5 h-3.5" />
+													</div>
+													<div className="min-w-0">
+														<div className="text-xs font-semibold truncate">{opt.label}</div>
+														<div className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+															{opt.description}
+														</div>
+													</div>
+												</div>
+												{isSelected && (
+													<Check className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 ml-2" />
+												)}
+											</button>
+										);
+									})}
+								</div>
 							</div>
 						</div>
 

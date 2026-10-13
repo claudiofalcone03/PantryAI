@@ -6,7 +6,7 @@ import { addProduct } from "@/lib/firestore/products";
 import { addProductToShoppingList } from "@/lib/firestore/shoppingList";
 import { Timestamp } from "firebase/firestore";
 import type { Product } from "@/types/firestore/productType";
-import type { DetectedProductItem } from "@/lib/genkit/genkit";
+import type { DetectedProductItem } from "@/lib/genkit/types";
 import { getFoodIcon, POPULAR_FOOD_EMOJIS } from "@/lib/utils/foodIcons";
 
 interface ProductAddPopupProps {

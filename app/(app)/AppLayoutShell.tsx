@@ -1,12 +1,25 @@
 "use client";
 
-import React from "react";
-import { DownNavbar, DesktopSidebar, GlobalVoiceFab, AssistantChatModal } from "@/components";
+import React, { useEffect, useState } from "react";
+import { DownNavbar } from "@/components/layout/DownNavbar";
+import { DesktopSidebar } from "@/components/layout/DesktopSidebar";
+import { GlobalVoiceFab } from "@/components/voice/GlobalVoiceFab";
+import { AssistantChatModal } from "@/components/assistant/AssistantChatModal";
 import { OfflineBanner } from "@/components/offline/OfflineBanner";
 import { useAssistant } from "@/context/AssistantContext";
 
 export function AppLayoutShell({ children }: { children: React.ReactNode }) {
   const { isAssistantOpen, closeAssistant } = useAssistant();
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mql = window.matchMedia("(min-width: 768px)");
+    setIsDesktop(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
 
   return (
     <div className="flex min-h-screen md:h-screen md:max-h-screen md:overflow-hidden bg-zinc-50 dark:bg-zinc-950">
@@ -32,29 +45,28 @@ export function AppLayoutShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Desktop Split View: Colonna fissa a destra (SECONDA AREA DI SCORRIMENTO INDIPENDENTE a tutta altezza h-screen) */}
+      {/* Assistente AI: evita istanze duplicate simultanee desktop e mobile per prevenire listener snapshot doppi */}
       {isAssistantOpen && (
-        <aside
-          aria-label="Assistente AI Dispensa Split View"
-          className="hidden md:flex flex-col w-[420px] lg:w-[460px] xl:w-[480px] h-screen max-h-screen border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0 z-20 shadow-xl overflow-hidden"
-        >
-          <AssistantChatModal
-            isOpen={true}
-            onClose={closeAssistant}
-            mode="docked"
-          />
-        </aside>
-      )}
-
-      {/* Mobile Modal Bottom-Sheet: Attivo solo su mobile (< md) quando aperto, sopra la navbar */}
-      {isAssistantOpen && (
-        <div className="md:hidden">
-          <AssistantChatModal
-            isOpen={true}
-            onClose={closeAssistant}
-            mode="modal"
-          />
-        </div>
+        isDesktop ? (
+          <aside
+            aria-label="Assistente AI Dispensa Split View"
+            className="flex flex-col w-[420px] lg:w-[460px] xl:w-[480px] h-screen max-h-screen border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0 z-20 shadow-xl overflow-hidden"
+          >
+            <AssistantChatModal
+              isOpen={true}
+              onClose={closeAssistant}
+              mode="docked"
+            />
+          </aside>
+        ) : (
+          <div>
+            <AssistantChatModal
+              isOpen={true}
+              onClose={closeAssistant}
+              mode="modal"
+            />
+          </div>
+        )
       )}
     </div>
   );

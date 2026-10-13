@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { X, Sparkles, Check, Calendar, Clock, ArrowRight, Layers } from "lucide-react";
-import type { DetectedProductItem } from "@/lib/genkit/genkit";
+import type { DetectedProductItem } from "@/lib/genkit/types";
 
 interface VisionReviewSheetPopupProps {
   isOpen: boolean;

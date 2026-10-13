@@ -1,22 +1,29 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import { getProductsByPantry, addProduct } from "@/lib/firestore/products";
-import { getShoppingListItemsByPantry, removeProductFromShoppingList, addProductToShoppingList } from "@/lib/firestore/shoppingList";
+import { doc, getDoc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { getProductsByPantry } from "@/lib/firestore/products";
+import {
+  getShoppingListItemsByPantry,
+} from "@/lib/firestore/shoppingList";
 import { type Product } from "@/types/firestore/productType";
 import { type ShoppingListItem as ShoppingListItemType } from "@/types/firestore/shoppingListItemType";
 import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
-import {
-  ShoppingListTopBar,
-  ProductAddPopup,
-  BarcodeScannerPopup,
-  ShoppingListItem,
-  ShoppingListItemSkeleton,
-  Skeleton,
-  AddToShoppingListDesktopModal,
-} from "@/components";
+import { ShoppingListTopBar } from "@/components/layout/ShoppingListTopBar";
+import { ProductAddPopup } from "@/components/popups/ProductAddPopup";
+import { ShoppingListItem } from "@/components/items/ShoppingListItem";
+import { ShoppingListItemSkeleton } from "@/components/skeletons/ShoppingListItemSkeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { AddToShoppingListDesktopModal } from "@/components/popups/AddToShoppingListDesktopModal";
+import { CheckoutRestockModal } from "@/components/popups/CheckoutRestockModal";
+
+const BarcodeScannerPopup = dynamic(
+  () => import("@/components/popups/BarcodeScannerPopup").then((mod) => mod.BarcodeScannerPopup),
+  { ssr: false }
+);
+import type { CheckoutRestockItem } from "@/components/popups/CheckoutRestockModal";
 import { Search, Loader, CheckCircle, Plus, Camera } from "lucide-react";
 import { saveCachedProducts, getCachedProducts, saveCachedShoppingItems, getCachedShoppingItems } from "@/lib/offline/indexedDb";
 import { CATEGORY_FALLBACK_EMOJIS } from "@/lib/utils/foodIcons";
@@ -36,6 +43,8 @@ export default function ListaSpesaPage() {
   const [scannedProductName, setScannedProductName] = useState("");
   const [scannedCarbonFootprint, setScannedCarbonFootprint] = useState<number | null>(null);
   const [pantryCategories, setPantryCategories] = useState<string[]>([]);
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [restockItems, setRestockItems] = useState<CheckoutRestockItem[]>([]);
 
   const fetchData = React.useCallback(async () => {
     if (!auth.currentUser) return;
@@ -112,29 +121,80 @@ export default function ListaSpesaPage() {
     };
   }, [fetchData]);
 
-  // Completamento Spesa
-  const handleCheckout = async () => {
-    if (isCheckingOut) return;
+  // Esecuzione effettiva del completamento spesa con batch atomico Firestore
+  const executeCheckout = async (restockQuantities?: Record<string, number>) => {
     setIsCheckingOut(true);
-
     try {
-      const purchasedItems = listItems.filter(item => item.listItemStatus === "purchased");
+      const purchasedItems = listItems.filter((item) => item.listItemStatus === "purchased");
       if (purchasedItems.length === 0) return;
 
-      const promises = purchasedItems.map(async (item) => {
-        const product = products.find(p => p.productId === item.listItemProductId);
-        if (product) {
-          await removeProductFromShoppingList(product);
-        }
-      });
+      const batch = writeBatch(db);
 
-      await Promise.all(promises);
+      for (const item of purchasedItems) {
+        // Elimina sempre il documento dalla lista della spesa
+        batch.delete(doc(db, "shoppingListItems", item.listItemId));
+
+        // Se l'elemento appartiene a un prodotto dell'inventario, aggiorna lo stato atomico
+        if (item.listItemProductId) {
+          const product = products.find((p) => p.productId === item.listItemProductId);
+          if (product && product.productId) {
+            const productRef = doc(db, "products", product.productId);
+            const restockedQty = restockQuantities ? restockQuantities[product.productId] : undefined;
+            if (restockedQty !== undefined && restockedQty > 0) {
+              batch.update(productRef, {
+                productQuantity: restockedQty,
+                addToShoppingList: false,
+                productShoppingListItemId: null,
+                productUpdatedAt: serverTimestamp(),
+              });
+            } else {
+              batch.update(productRef, {
+                addToShoppingList: false,
+                productShoppingListItemId: null,
+                productUpdatedAt: serverTimestamp(),
+              });
+            }
+          }
+        }
+      }
+
+      await batch.commit();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("inventory-updated"));
+        window.dispatchEvent(new CustomEvent("shopping-list-updated"));
+      }
       await fetchData();
     } catch (error) {
       console.error("Errore completamento spesa:", error);
     } finally {
       setIsCheckingOut(false);
     }
+  };
+
+  // Completamento Spesa: se ci sono articoli acquistati a quantità 0 in dispensa, apre il modal di conferma
+  const handleCheckout = async () => {
+    if (isCheckingOut) return;
+
+    const purchasedItems = listItems.filter((item) => item.listItemStatus === "purchased");
+    if (purchasedItems.length === 0) return;
+
+    const zeroQtyPurchased = purchasedItems
+      .map((item) => ({
+        item,
+        product: products.find((p) => p.productId === item.listItemProductId),
+      }))
+      .filter((x): x is CheckoutRestockItem =>
+        Boolean(x.product && (x.product.productQuantity === 0 || !x.product.productQuantity))
+      );
+
+    if (zeroQtyPurchased.length > 0) {
+      setRestockItems(zeroQtyPurchased);
+      setIsRestockModalOpen(true);
+      return;
+    }
+
+    await executeCheckout();
   };
 
 
@@ -397,6 +457,15 @@ export default function ListaSpesaPage() {
           setScannedCarbonFootprint(null);
           setIsDesktopAddModalOpen(false);
           setAddPopUpOpen(true);
+        }}
+      />
+
+      <CheckoutRestockModal
+        isOpen={isRestockModalOpen}
+        onClose={() => setIsRestockModalOpen(false)}
+        items={restockItems}
+        onConfirm={async (quantities) => {
+          await executeCheckout(quantities);
         }}
       />
     </div>

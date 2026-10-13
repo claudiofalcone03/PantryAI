@@ -7,7 +7,8 @@ export type ProposedActionType =
   | "freeze_product"
   | "unfreeze_product"
   | "consume_product"
-  | "add_to_shopping_list";
+  | "add_to_shopping_list"
+  | "add_memory_fact";
 
 export interface ProposedAction {
   id: string; // ID univoco temporaneo per l'azione
@@ -25,7 +26,17 @@ export interface ProposedAction {
     shelfLifeDays?: number;
     // shopping list
     shoppingItemName?: string;
+    // memory fact
+    memoryFactText?: string;
+    memoryFactCategory?: "diet" | "taste_dislike" | "taste_preference" | "cooking_habit" | "household" | "other";
   };
+}
+
+export interface AssistantErrorDetails {
+  code?: string | number;
+  message: string;
+  technicalDetails?: string;
+  retryText?: string;
 }
 
 export interface AssistantMessage {
@@ -34,4 +45,5 @@ export interface AssistantMessage {
   content: string;
   createdAt: Timestamp | number;
   proposedActions?: ProposedAction[];
+  error?: AssistantErrorDetails;
 }

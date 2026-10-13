@@ -18,6 +18,9 @@ import {
   Check,
   ChefHat,
   PackageOpen,
+  Heart,
+  AlertTriangle,
+  RotateCw,
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -40,12 +43,98 @@ import {
 import { addRawItemToShoppingList } from "@/lib/firestore/shoppingList";
 import {
   chatWithPantryCopilot,
+  chatWithMemorySpecialist,
   transcribeAndParseVoiceInput,
-  type PantryCopilotContext,
 } from "@/lib/genkit/genkit";
-import type { AssistantMessage, ProposedAction } from "@/types/assistant/assistantType";
+import type { PantryCopilotContext } from "@/lib/genkit/types";
+import { findPantryMatch } from "@/lib/utils/ingredientMatcher";
+import {
+  getDietaryPreferences,
+  getMemoryFacts,
+  addMemoryFact,
+  formatUserDietAndMemoryContext,
+  learnMemoryFromUserMessage,
+} from "@/lib/firestore/userMemory";
+import type { AssistantMessage, ProposedAction, AssistantErrorDetails } from "@/types/assistant/assistantType";
 import type { Product } from "@/types/firestore/productType";
 import { Timestamp, doc, getDoc } from "firebase/firestore";
+
+/**
+ * Pre-analizzatore client-side ultra rapido (<1ms).
+ * Rileva se il messaggio esprime un gusto, un'intolleranza o una preferenza personale
+ * per instradarlo al Subagente Memoria senza caricare inutilmente l'intero inventario.
+ */
+function isMemoryPreferenceIntent(text: string): boolean {
+  const normalized = text.toLowerCase().trim();
+  const patterns = [
+    /\b(mi piace|adoro|amo|preferisco|vado matto|gradisco)\b/i,
+    /\b(non mi piace|odio|detesto|disprezzo|non gradisco|non sopporto)\b/i,
+    /\b(non mangio|non consumo|evito|non posso mangiare)\b/i,
+    /\b(sono allergico|sono intollerante|allergia|intolleranza)\b/i,
+    /\b(sono vegetariano|sono vegano|sono celiaco|sono a dieta)\b/i,
+    /\b(ricorda(?:ti)? che|tieni a mente che|memorizza che|appuntati che)\b/i,
+  ];
+  return patterns.some((p) => p.test(normalized));
+}
+
+/**
+ * Traduce e formatta in modo trasparente gli errori del server/LLM (es. 503, 429, permessi)
+ * per renderli chiaramente comprensibili all'utente e utili al debug tecnico.
+ */
+function parseAiOrServerError(err: any, retryText?: string): AssistantErrorDetails {
+  const rawMessage = err?.message || String(err) || "Errore sconosciuto";
+  const rawCode = err?.code || err?.status || (rawMessage.match(/\b(503|429|403|401|400|500)\b/)?.[1]);
+
+  let code: string | number = rawCode || "SERVER_ERROR";
+  let userExplanation = "Si è verificato un errore durante l'elaborazione del messaggio.";
+
+  if (
+    code === 503 ||
+    code === "503" ||
+    code === "UNAVAILABLE" ||
+    rawMessage.includes("503") ||
+    rawMessage.includes("high demand") ||
+    rawMessage.includes("overloaded")
+  ) {
+    code = "503 - Service Unavailable";
+    userExplanation =
+      "Server AI momentaneamente sovraccarico (503). Il modello Gemini sta gestendo un picco di richieste. Clicca 'Riprova' per rieseguire l'invio.";
+  } else if (
+    code === 429 ||
+    code === "429" ||
+    code === "RESOURCE_EXHAUSTED" ||
+    rawMessage.includes("quota") ||
+    rawMessage.includes("rate limit")
+  ) {
+    code = "429 - Quota Exceeded";
+    userExplanation =
+      "Limite di richieste raggiunto (429 Too Many Requests). Attendi qualche istante prima di inviare un nuovo messaggio.";
+  } else if (
+    code === 403 ||
+    code === "PERMISSION_DENIED" ||
+    rawMessage.includes("permission-denied") ||
+    rawMessage.includes("Missing or insufficient permissions")
+  ) {
+    code = "403 - Permission Denied";
+    userExplanation =
+      "Autorizzazione insufficiente (403 Permission Denied) su Firestore o sui servizi Google. Verifica l'account o le regole di sicurezza.";
+  } else if (rawMessage.includes("timeout") || rawMessage.includes("deadline")) {
+    code = "504 - Timeout";
+    userExplanation =
+      "Tempo di risposta scaduto (Gateway Timeout). Il server non ha risposto entro il tempo massimo previsto.";
+  } else if (rawMessage.includes("fetch failed") || rawMessage.includes("Failed to fetch") || rawMessage.includes("network")) {
+    code = "NETWORK_ERROR";
+    userExplanation =
+      "Problema di connessione di rete. Impossibile contattare i server cloud di Firebase o Google Gemini.";
+  }
+
+  return {
+    code,
+    message: userExplanation,
+    technicalDetails: rawMessage,
+    retryText,
+  };
+}
 
 interface AssistantChatModalProps {
   isOpen: boolean;
@@ -429,42 +518,78 @@ export function AssistantChatModal({
             : undefined,
         }));
 
-      const context: PantryCopilotContext = {
-        pantryName: effectivePantryName || pantryName,
-        categories: effectiveCategories.length > 0 ? effectiveCategories : pantryCategories,
-        products: prodsToUse.map((p) => ({
-          id: p.productId || "",
-          name: p.productName,
-          quantity: p.productQuantity,
-          unit: p.productUnitOfMeasure,
-          category: p.productCategory,
-          isOpened: !!p.productOpenedAt,
-          isFrozen: !!p.isFrozen,
-          expiryDateStr: p.expiryDateProduct
-            ? new Date(p.expiryDateProduct.toMillis()).toLocaleDateString("it-IT")
-            : undefined,
-        })),
-        expiringProducts: expiringProds,
-      };
+      let userDietaryContext = "";
+      try {
+        const [dietPrefs, facts] = await Promise.all([
+          getDietaryPreferences(currentUid),
+          getMemoryFacts(currentUid, true),
+        ]);
+        userDietaryContext = formatUserDietAndMemoryContext(dietPrefs, facts);
+      } catch (dErr) {
+        console.warn("[AssistantChat] Errore recupero preferenze dietetiche:", dErr);
+      }
 
       const historyContext = messages.map((m) => ({
         role: m.role,
         content: m.content,
       }));
 
-      // 3. Chiamata al modello AI
-      const result = await chatWithPantryCopilot(text, historyContext, context);
+      // 3. Routing Rapido: se il messaggio esprime gusti/preferenze, invia subito al Subagente Memoria
+      const isPreference = isMemoryPreferenceIntent(text);
+      let result;
+
+      if (isPreference) {
+        // Fast path: salta la serializzazione di 80 prodotti e risponde in <1s con l'azione di memorizzazione proposta
+        result = await chatWithMemorySpecialist(text, historyContext, userDietaryContext);
+      } else {
+        // Standard path: gestione operazioni dispensa, riconciliazione prodotti e ricette
+        const context: PantryCopilotContext = {
+          pantryName: effectivePantryName || pantryName,
+          categories: effectiveCategories.length > 0 ? effectiveCategories : pantryCategories,
+          products: prodsToUse.map((p) => ({
+            id: p.productId || "",
+            name: p.productName,
+            quantity: p.productQuantity,
+            unit: p.productUnitOfMeasure,
+            category: p.productCategory,
+            isOpened: !!p.productOpenedAt,
+            isFrozen: !!p.isFrozen,
+            expiryDateStr: p.expiryDateProduct
+              ? new Date(p.expiryDateProduct.toMillis()).toLocaleDateString("it-IT")
+              : undefined,
+          })),
+          expiringProducts: expiringProds,
+          userDietaryContext,
+        };
+
+        result = await chatWithPantryCopilot(text, historyContext, context);
+      }
+
+      if (result && result.success === false) {
+        throw new Error(result.reply || "Errore nella comunicazione con il modello AI.");
+      }
 
       // 4. Salva risposta assistente su Firestore
       await saveAssistantReply(currentUid, targetPantryId, result.reply, result.proposedActions);
-    } catch (err) {
+
+      // 5. Apprendimento silenzioso in background solo se non era già gestito dal subagente
+      if (!isPreference) {
+        learnMemoryFromUserMessage(currentUid, text).catch((err) =>
+          console.warn("[AssistantChat] Avviso apprendimento memoria in background:", err)
+        );
+      }
+    } catch (err: any) {
       console.error("[AssistantChat] Errore invio messaggio:", err);
-      setInputValue(text);
+      const parsedError = parseAiOrServerError(err, text);
       await saveAssistantReply(
         currentUid,
         targetPantryId,
-        "Si è verificato un errore durante la risposta. Riprova tra poco."
-      ).catch(() => {});
+        parsedError.message,
+        [],
+        parsedError
+      ).catch((saveErr) => {
+        console.error("[AssistantChat] Impossibile salvare messaggio di errore su Firestore:", saveErr);
+      });
     } finally {
       setIsLoading(false);
     }
@@ -486,26 +611,70 @@ export function AssistantChatModal({
       const { type, payload } = action;
 
       if (type === "add_product") {
-        let expTimestamp: Timestamp | null = null;
+        const prodsToUse = effectiveProducts.length > 0 ? effectiveProducts : (products || []);
+        const match = findPantryMatch(payload.productName || "", prodsToUse);
+
+        // Se l'alimento è già presente in dispensa, aggiorna la quantità del prodotto esistente invece di duplicarlo
+        if (match.matched && match.matchedProduct && match.matchedProduct.productId) {
+          const existing = match.matchedProduct;
+          const existingId = match.matchedProduct.productId;
+          const addedQty = payload.productQuantity || 1;
+          const newTotalQty = (existing.productQuantity || 0) + addedQty;
+
+          const updateData: Partial<Product> = {
+            productQuantity: newTotalQty,
+          };
+
+          // Gestione scadenza: se il nuovo acquisto ha una scadenza più ravvicinata, aggiornala per evitare sprechi
+          if (payload.productExpiryDate) {
+            const newExpDate = new Date(payload.productExpiryDate);
+            if (!isNaN(newExpDate.getTime())) {
+              const existingExpDate = existing.expiryDateProduct?.toDate?.();
+              if (!existingExpDate || newExpDate < existingExpDate) {
+                updateData.expiryDateProduct = Timestamp.fromDate(newExpDate);
+              }
+            }
+          }
+
+          await updateProduct(existingId, updateData);
+          window.dispatchEvent(new Event("inventory-updated"));
+        } else {
+          let expTimestamp: Timestamp | null = null;
+          if (payload.productExpiryDate) {
+            const d = new Date(payload.productExpiryDate);
+            if (!isNaN(d.getTime())) expTimestamp = Timestamp.fromDate(d);
+          }
+
+          await addProduct({
+            productPantryId: targetPantryId,
+            productName: payload.productName || "Prodotto",
+            productQuantity: payload.productQuantity || 1,
+            productUnitOfMeasure: payload.productUnit || "pz",
+            productCategory: payload.productCategory || "Altro",
+            expiryDateProduct: expTimestamp,
+            addToShoppingList: false,
+          });
+          window.dispatchEvent(new Event("inventory-updated"));
+        }
+      } else if (type === "update_quantity" && payload.productId) {
+        const updateData: Partial<Product> = {
+          productQuantity: payload.productQuantity ?? 1,
+        };
+
+        // Gestione scadenza: se è specificata una nuova data (es. nuovo lotto acquistato)
         if (payload.productExpiryDate) {
-          const d = new Date(payload.productExpiryDate);
-          if (!isNaN(d.getTime())) expTimestamp = Timestamp.fromDate(d);
+          const newExpDate = new Date(payload.productExpiryDate);
+          if (!isNaN(newExpDate.getTime())) {
+            const prodsToUse = effectiveProducts.length > 0 ? effectiveProducts : (products || []);
+            const existingProduct = prodsToUse.find((p) => p.productId === payload.productId);
+            const existingExpDate = existingProduct?.expiryDateProduct?.toDate?.();
+            if (!existingExpDate || newExpDate < existingExpDate) {
+              updateData.expiryDateProduct = Timestamp.fromDate(newExpDate);
+            }
+          }
         }
 
-        await addProduct({
-          productPantryId: targetPantryId,
-          productName: payload.productName || "Prodotto",
-          productQuantity: payload.productQuantity || 1,
-          productUnitOfMeasure: payload.productUnit || "pz",
-          productCategory: payload.productCategory || "Altro",
-          expiryDateProduct: expTimestamp,
-          addToShoppingList: false,
-        });
-        window.dispatchEvent(new Event("inventory-updated"));
-      } else if (type === "update_quantity" && payload.productId) {
-        await updateProduct(payload.productId, {
-          productQuantity: payload.productQuantity ?? 1,
-        });
+        await updateProduct(payload.productId, updateData);
         window.dispatchEvent(new Event("inventory-updated"));
       } else if (type === "open_product" && payload.productId) {
         await openProduct(payload.productId, payload.shelfLifeDays || 3);
@@ -525,8 +694,22 @@ export function AssistantChatModal({
         window.dispatchEvent(new Event("inventory-updated"));
       } else if (type === "add_to_shopping_list") {
         const itemName = payload.shoppingItemName || payload.productName || "Nuovo alimento";
-        await addRawItemToShoppingList(targetPantryId, itemName);
+        await addRawItemToShoppingList(targetPantryId, itemName, {
+          category: payload.productCategory,
+          unit: payload.productUnit,
+        });
         window.dispatchEvent(new Event("shopping-list-updated"));
+        window.dispatchEvent(new Event("inventory-updated"));
+      } else if (type === "add_memory_fact") {
+        const factText = payload.memoryFactText || payload.productName || action.description || action.title;
+        const factCat = payload.memoryFactCategory || "taste_preference";
+        await addMemoryFact(currentUid, {
+          text: factText,
+          category: factCat,
+          source: "user",
+          isActive: true,
+        });
+        window.dispatchEvent(new Event("memory-facts-updated"));
       }
 
       // Segna l'azione come applicata nel documento Firestore del messaggio
@@ -680,22 +863,85 @@ export function AssistantChatModal({
                 className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
               >
                 {!isUser && (
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-1 shadow-sm">
-                    <Sparkles className="w-4 h-4 text-amber-200" />
+                  <div
+                    className={`w-8 h-8 rounded-xl ${
+                      msg.error
+                        ? "bg-amber-500 text-white"
+                        : "bg-emerald-500 text-white"
+                    } flex items-center justify-center shrink-0 mt-1 shadow-sm`}
+                  >
+                    {msg.error ? (
+                      <AlertTriangle className="w-4 h-4 text-white" />
+                    ) : (
+                      <Sparkles className="w-4 h-4 text-amber-200" />
+                    )}
                   </div>
                 )}
 
                 <div className={`max-w-[85%] sm:max-w-[78%] space-y-2`}>
-                  {/* Bolla del messaggio */}
-                  <div
-                    className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                      isUser
-                        ? "bg-emerald-600 text-white rounded-br-none shadow-sm"
-                        : "bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-tl-none border border-zinc-200/60 dark:border-zinc-700/60 shadow-sm"
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
+                  {/* Bolla del messaggio o Box Errore Esplicito */}
+                  {msg.error ? (
+                    <div className="rounded-2xl p-3.5 sm:p-4 bg-amber-50/95 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-100 shadow-xs space-y-3">
+                      <div className="flex items-start gap-2.5">
+                        <div className="p-1.5 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5">
+                          <AlertTriangle className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                              Avviso Servizio AI
+                            </span>
+                            {msg.error.code && (
+                              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-200/80 dark:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700">
+                                {msg.error.code}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs sm:text-sm text-amber-950 dark:text-amber-100 mt-1 leading-relaxed">
+                            {msg.error.message || msg.content}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Dettagli tecnici espandibili per lo sviluppatore */}
+                      {msg.error.technicalDetails && (
+                        <details className="text-xs group border-t border-amber-200/80 dark:border-amber-800/60 pt-2 cursor-pointer">
+                          <summary className="font-semibold text-amber-800 dark:text-amber-300 select-none hover:underline flex items-center justify-between">
+                            <span>Dettagli tecnici e diagnostica</span>
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 group-open:rotate-180 transition-transform">▼</span>
+                          </summary>
+                          <div className="mt-2 p-2.5 rounded-xl bg-amber-100/70 dark:bg-zinc-900 border border-amber-200 dark:border-zinc-800 font-mono text-[11px] text-zinc-800 dark:text-zinc-200 break-words whitespace-pre-wrap select-text max-h-40 overflow-y-auto">
+                            {msg.error.technicalDetails}
+                          </div>
+                        </details>
+                      )}
+
+                      {/* Pulsante Riprova invio */}
+                      {msg.error.retryText && (
+                        <div className="flex items-center justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSendMessage(msg.error!.retryText)}
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            <RotateCw className="w-3.5 h-3.5" />
+                            <span>Riprova invio</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                        isUser
+                          ? "bg-emerald-600 text-white rounded-br-none shadow-sm"
+                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-tl-none border border-zinc-200/60 dark:border-zinc-700/60 shadow-sm"
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  )}
 
                   {/* Card Interattive per le Azioni Proposte (se presenti) */}
                   {msg.proposedActions && msg.proposedActions.length > 0 && (
@@ -718,6 +964,8 @@ export function AssistantChatModal({
                             ? PackageOpen
                             : action.type === "consume_product"
                             ? Flame
+                            : action.type === "add_memory_fact"
+                            ? Heart
                             : ShoppingCart;
 
                         return (

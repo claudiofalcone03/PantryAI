@@ -9,7 +9,7 @@ import {
   UserMinus, Crown, User as UserIcon
 } from "lucide-react";
 import { type Pantry, DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
-import { Skeleton } from "@/components";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   updatePantryName,
   updatePantryCategories,

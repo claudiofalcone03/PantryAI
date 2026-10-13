@@ -13,6 +13,7 @@ import {
   removePendingMutation,
   OfflineMutation,
 } from "./indexedDb";
+import { deleteShoppingListItem } from "../firestore/shoppingList";
 
 type SyncListener = (status: {
   isSyncing: boolean;
@@ -164,6 +165,12 @@ async function executeSingleMutation(mutation: OfflineMutation): Promise<void> {
         listItemProductId: payload.productId || null,
         listItemCreatedAt: serverTimestamp(),
       });
+      break;
+    }
+
+    case "DELETE_SHOPPING_ITEM": {
+      if (!docId) return;
+      await deleteShoppingListItem(docId, payload?.productId);
       break;
     }
 

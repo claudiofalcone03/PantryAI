@@ -4,7 +4,8 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { X, Loader2, Zap, ZapOff, RefreshCw, Camera, Barcode, Sparkles, Upload } from "lucide-react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { fetchProductByBarcode } from "@/lib/api/openFoodFacts";
-import { analyzeImageProducts, type DetectedProductItem } from "@/lib/genkit/genkit";
+import { analyzeImageProducts } from "@/lib/genkit/genkit";
+import type { DetectedProductItem } from "@/lib/genkit/types";
 
 interface BarcodeScannerPopupProps {
   isOpen: boolean;

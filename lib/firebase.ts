@@ -22,13 +22,16 @@ const googleProvider = new GoogleAuthProvider();
 
 // Inizializza Firestore con CACHE OFFLINE per rendere il caricamento istantaneo
 let db: Firestore;
-if (typeof window !== "undefined" && !getApps().length) {
-  // Solo lato client e alla prima inizializzazione attiviamo la cache
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-  });
+if (typeof window !== "undefined") {
+  try {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch {
+    db = getFirestore(app);
+  }
 } else {
-  // Fallback se siamo lato server o in un refresh
+  // Fallback se siamo lato server
   db = getFirestore(app);
 }
 

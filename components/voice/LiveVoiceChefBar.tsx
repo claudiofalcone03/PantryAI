@@ -14,7 +14,8 @@ import {
   Volume2,
 } from "lucide-react";
 import { GeminiLiveClient } from "@/lib/audio/geminiLiveClient";
-import { getGeminiLiveConfig, buildLiveChefPantryContext, type PantryContextProduct } from "@/lib/genkit/genkit";
+import { getGeminiLiveConfig, buildLiveChefPantryContext } from "@/lib/genkit/genkit";
+import type { PantryContextProduct } from "@/lib/genkit/types";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { getProductsByPantry, getExpiringProductsByPantry } from "@/lib/firestore/products";

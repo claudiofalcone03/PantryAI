@@ -13,7 +13,7 @@ import {
   Timestamp,
   writeBatch,
 } from "firebase/firestore";
-import type { AssistantMessage, ProposedAction } from "@/types/assistant/assistantType";
+import type { AssistantMessage, ProposedAction, AssistantErrorDetails } from "@/types/assistant/assistantType";
 
 function getMessagesCollection(userId: string, pantryId: string) {
   return collection(db, "users", userId, "pantryChats", pantryId, "messages");
@@ -46,6 +46,7 @@ export function subscribeAssistantMessages(
           content: data.content || "",
           createdAt: data.createdAt || Timestamp.now(),
           proposedActions: data.proposedActions || [],
+          error: data.error || undefined,
         };
       });
       callback(messages);
@@ -75,21 +76,26 @@ export async function sendUserAssistantMessage(
 }
 
 /**
- * Salva la risposta dell'assistente con le eventuali azioni confermabili
+ * Salva la risposta dell'assistente con le eventuali azioni confermabili e dettagli errore
  */
 export async function saveAssistantReply(
   userId: string,
   pantryId: string,
   content: string,
-  proposedActions: ProposedAction[] = []
+  proposedActions: ProposedAction[] = [],
+  error?: AssistantErrorDetails
 ): Promise<string> {
   const colRef = getMessagesCollection(userId, pantryId);
-  const docRef = await addDoc(colRef, {
+  const data: Record<string, any> = {
     role: "assistant",
     content,
     createdAt: serverTimestamp(),
     proposedActions,
-  });
+  };
+  if (error) {
+    data.error = error;
+  }
+  const docRef = await addDoc(colRef, data);
   return docRef.id;
 }
 
