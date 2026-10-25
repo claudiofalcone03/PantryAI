@@ -37,8 +37,6 @@ export function DesktopSidebar() {
   const pathname = usePathname();
   const [userName, setUserName] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
-  const [currentPantryId, setCurrentPantryId] = useState<string>("");
-  const [currentPantryName, setCurrentPantryName] = useState<string>("");
   const { isAssistantOpen, toggleAssistant } = useAssistant();
 
   const [activeTabIds, setActiveTabIds] = useState<string[]>(() => {
@@ -82,13 +80,6 @@ export function DesktopSidebar() {
           if (userDoc.exists()) {
             const data = userDoc.data() as UserProfile;
             if (data.userProfileName) setUserName(data.userProfileName);
-            if (data.userProfileCurrentPantryId) {
-              setCurrentPantryId(data.userProfileCurrentPantryId);
-              const pDoc = await getDoc(doc(db, "pantries", data.userProfileCurrentPantryId));
-              if (pDoc.exists()) {
-                setCurrentPantryName(pDoc.data()?.pantryName || "");
-              }
-            }
             if (data.userProfileDesktopNavTabs && Array.isArray(data.userProfileDesktopNavTabs) && data.userProfileDesktopNavTabs.length > 0) {
               setActiveTabIds(data.userProfileDesktopNavTabs);
               localStorage.setItem("user_desktop_nav_tabs", JSON.stringify(data.userProfileDesktopNavTabs));
@@ -121,16 +112,9 @@ export function DesktopSidebar() {
             <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20 group-hover:bg-emerald-700 transition-colors shrink-0">
               <Leaf className="w-5 h-5 fill-current" />
             </div>
-            <div className="flex flex-col min-w-0">
-              <span className="font-extrabold text-xl tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-1">
-                Pantry<span className="text-emerald-600 dark:text-emerald-500">AI</span>
-              </span>
-              {currentPantryName && (
-                <span className="text-[11px] text-zinc-400 dark:text-zinc-500 truncate max-w-[140px]">
-                  {currentPantryName}
-                </span>
-              )}
-            </div>
+            <span className="font-extrabold text-xl tracking-tight text-zinc-900 dark:text-zinc-100 flex items-center gap-1">
+              Pantry<span className="text-emerald-600 dark:text-emerald-500">AI</span>
+            </span>
           </Link>
 
           {/* Voci di Navigazione Dinamiche */}
