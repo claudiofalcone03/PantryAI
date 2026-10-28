@@ -75,7 +75,7 @@ export default function AccessToPantryPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 px-4 py-8 pt-[calc(2rem+env(safe-area-inset-top,0px))] pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
       <div className="w-full max-w-4xl">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight mb-2">Benvenuto in PantryAI</h1>

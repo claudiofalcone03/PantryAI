@@ -5,6 +5,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
+import { syncUserProfileData } from "@/lib/firestore/userProfile";
 
 export default function AppGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function AppGuard({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
       try {
         if (!userAuth) {
-          // Utente non autenticato quindi mando a \login
+          // Utente non autenticato quindi mando a /login
           router.replace("/login");
           setAllowed(false);
           setChecking(false);
@@ -23,9 +24,14 @@ export default function AppGuard({ children }: { children: React.ReactNode }) {
         }
 
         // Lettura del profilo utente da Firestore
-        const userDoc = doc(db, "users", userAuth.uid); //Prendo il riferimento al documento dell'utente
-        const snap = await getDoc(userDoc); //Leggo il documento
-        const data = snap.exists() ? snap.data() : null; //Se esiste prendo i dati, altrimenti null
+        const userDoc = doc(db, "users", userAuth.uid); // Prendo il riferimento al documento dell'utente
+        const snap = await getDoc(userDoc); // Leggo il documento
+        const data = snap.exists() ? snap.data() : null; // Se esiste prendo i dati, altrimenti null
+
+        // Se il profilo utente non esiste o mancano dati di base, sincronizzalo
+        if (!data || !data.userId) {
+          await syncUserProfileData(userAuth);
+        }
 
         // Carico le eventuali dispense collegate all'utente alla variabile
         const pantryIds: string[] | null | undefined = data?.userProfilePantryIds;
@@ -71,8 +77,8 @@ export default function AppGuard({ children }: { children: React.ReactNode }) {
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <svg className="w-16 h-16 text-zinc-600 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <svg className="w-12 h-12 text-green-600 animate-spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
         </svg>

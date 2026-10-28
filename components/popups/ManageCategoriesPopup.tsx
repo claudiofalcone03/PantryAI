@@ -98,7 +98,7 @@ export function ManageCategoriesPopup({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-zinc-800 shrink-0">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400 rounded-xl">
               <Tag className="w-5 h-5" />
@@ -230,7 +230,7 @@ export function ManageCategoriesPopup({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end bg-zinc-50/50 dark:bg-zinc-950/50">
+        <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-end bg-zinc-50/50 dark:bg-zinc-950/50 shrink-0">
           <button
             type="button"
             onClick={onClose}

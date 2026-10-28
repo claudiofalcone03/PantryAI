@@ -275,4 +275,22 @@ export async function updateInventorySortPreference(
   );
 }
 
+/**
+ * Assicura la sincronizzazione dei dati di base dell'utente su Firestore
+ */
+export async function syncUserProfileData(user: { uid: string; email?: string | null; displayName?: string | null; photoURL?: string | null }): Promise<void> {
+  if (!user?.uid) return;
+  try {
+    const userRef = doc(db, "users", user.uid);
+    const profileData: Partial<UserProfile> = {
+      userId: user.uid,
+      userEmail: user.email ?? "",
+      ...(user.displayName ? { userProfileName: user.displayName } : {}),
+      ...(user.photoURL ? { userProfilePhotoURL: user.photoURL } : {}),
+    };
+    await setDoc(userRef, profileData, { merge: true });
+  } catch (err) {
+    console.warn("[UserProfile] Avviso sincronizzazione profilo utente:", err);
+  }
+}
 

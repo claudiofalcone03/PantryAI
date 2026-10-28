@@ -216,7 +216,7 @@ export function GlobalVoiceFab() {
       className={
         position
           ? "touch-none select-none"
-          : "fixed bottom-[calc(4rem+env(safe-area-inset-bottom)+1rem)] right-4 sm:right-6 z-40 touch-none select-none"
+          : "fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] right-4 sm:right-6 z-40 touch-none select-none"
       }
     >
       <button
