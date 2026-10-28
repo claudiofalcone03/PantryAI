@@ -707,7 +707,7 @@ export default function RicettarioPage() {
       )}
 
       {/* Top Bar Intestazione - PERMANENTEMENTE ANCORATA: shrink-0 */}
-      <header className="p-3.5 sm:p-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 shrink-0 z-20">
+      <header className="px-3.5 pb-3.5 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] sm:p-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 shrink-0 z-20">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-200 dark:border-emerald-900/50">
@@ -750,7 +750,7 @@ export default function RicettarioPage() {
       </header>
 
       {/* Main Content - UNICA AREA CHE SCORRE */}
-      <main className="flex-1 min-h-0 overflow-y-auto w-full max-w-4xl mx-auto p-3 sm:p-4 flex flex-col z-1 pb-2 sm:pb-6">
+      <main className="flex-1 min-h-0 overflow-y-auto w-full max-w-4xl mx-auto p-3 sm:p-4 flex flex-col z-1 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-6">
         {/* PARTE ALTA: Carosello di Ricette */}
         <section aria-label="Carosello Ricettario">
           <RecipeCarousel

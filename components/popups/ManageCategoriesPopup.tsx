@@ -2,15 +2,18 @@
 
 import React, { useState } from "react";
 import { X, Plus, Trash2, RotateCcw, Tag } from "lucide-react";
-import { updatePantryCategories } from "@/lib/firestore/pantries";
+import { updatePantryCategories, updatePantryCategoryIcons } from "@/lib/firestore/pantries";
 import { DEFAULT_PANTRY_CATEGORIES } from "@/types/firestore/pantryType";
+import { CATEGORY_FALLBACK_EMOJIS, POPULAR_FOOD_EMOJIS } from "@/lib/utils/foodIcons";
 
 interface ManageCategoriesPopupProps {
   isOpen: boolean;
   onClose: () => void;
   pantryId: string;
   currentCategories: string[];
+  currentCategoryIcons?: Record<string, string>;
   onCategoriesUpdated: (newCategories: string[]) => void;
+  onCategoryIconsUpdated?: (newCategoryIcons: Record<string, string>) => void;
 }
 
 export function ManageCategoriesPopup({
@@ -18,13 +21,49 @@ export function ManageCategoriesPopup({
   onClose,
   pantryId,
   currentCategories,
+  currentCategoryIcons = {},
   onCategoriesUpdated,
+  onCategoryIconsUpdated,
 }: ManageCategoriesPopupProps) {
   const [newCatInput, setNewCatInput] = useState("");
+  const [categoryIcons, setCategoryIcons] = useState<Record<string, string>>(currentCategoryIcons);
+  const [editingIconCat, setEditingIconCat] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   if (!isOpen) return null;
+
+  const handleSelectIcon = async (category: string, emoji: string) => {
+    setIsUpdating(true);
+    const updatedIcons = { ...categoryIcons, [category]: emoji };
+    setCategoryIcons(updatedIcons);
+    setEditingIconCat(null);
+    try {
+      await updatePantryCategoryIcons(pantryId, updatedIcons);
+      onCategoryIconsUpdated?.(updatedIcons);
+    } catch (err) {
+      console.error("Errore salvataggio icona categoria:", err);
+      setErrorMsg("Errore durante il salvataggio dell'icona.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleResetIcon = async (category: string) => {
+    setIsUpdating(true);
+    const updatedIcons = { ...categoryIcons };
+    delete updatedIcons[category];
+    setCategoryIcons(updatedIcons);
+    setEditingIconCat(null);
+    try {
+      await updatePantryCategoryIcons(pantryId, updatedIcons);
+      onCategoryIconsUpdated?.(updatedIcons);
+    } catch (err) {
+      console.error("Errore reset icona categoria:", err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleAddCategory = async (catName?: string) => {
     const nameToAdd = (catName || newCatInput).trim();
@@ -182,23 +221,69 @@ export function ManageCategoriesPopup({
             </div>
 
             <div className="flex flex-wrap gap-2 max-h-52 overflow-y-auto p-1">
-              {currentCategories.map((cat) => (
-                <div
-                  key={cat}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 shadow-sm"
-                >
-                  <span>{cat}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCategory(cat)}
-                    disabled={isUpdating}
-                    title={`Rimuovi ${cat}`}
-                    className="text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+              {currentCategories.map((cat) => {
+                const currentEmoji = categoryIcons[cat] || CATEGORY_FALLBACK_EMOJIS[cat] || "🏷️";
+                const isPickingIcon = editingIconCat === cat;
+
+                return (
+                  <div
+                    key={cat}
+                    className="relative inline-flex items-center gap-2 px-2.5 py-1.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/60 rounded-xl text-sm font-medium text-zinc-800 dark:text-zinc-200 shadow-sm"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+                    {/* Pulsante Icona / Emoji Categoria */}
+                    <button
+                      type="button"
+                      disabled={isUpdating}
+                      onClick={() => setEditingIconCat(isPickingIcon ? null : cat)}
+                      title={`Modifica icona per ${cat}`}
+                      className="w-7 h-7 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-sm hover:scale-110 active:scale-95 transition-transform cursor-pointer shadow-2xs"
+                    >
+                      {currentEmoji}
+                    </button>
+
+                    {/* Popover Scelta Emoji */}
+                    {isPickingIcon && (
+                      <div className="absolute top-10 left-0 z-50 p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl w-64 max-h-52 overflow-y-auto">
+                        <div className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-1.5 px-1">
+                          Scegli icona per {cat}:
+                        </div>
+                        <div className="grid grid-cols-6 gap-1">
+                          {POPULAR_FOOD_EMOJIS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleSelectIcon(cat, emoji)}
+                              className="w-8 h-8 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center text-base transition-transform active:scale-90"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                        {categoryIcons[cat] && (
+                          <button
+                            type="button"
+                            onClick={() => handleResetIcon(cat)}
+                            className="w-full mt-2 py-1 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 text-center border-t border-zinc-100 dark:border-zinc-800 pt-1 cursor-pointer"
+                          >
+                            Ripristina icona default
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <span>{cat}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCategory(cat)}
+                      disabled={isUpdating}
+                      title={`Rimuovi ${cat}`}
+                      className="text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors ml-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
               {currentCategories.length === 0 && (
                 <p className="text-sm text-zinc-400 italic">Nessuna categoria attiva.</p>
               )}

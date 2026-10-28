@@ -177,6 +177,12 @@ export async function updatePantryCategories(pantryId: string, newCategories: st
   await setDoc(pantryRef, { pantryCategories: newCategories, pantryUpdatedAt: serverTimestamp() }, { merge: true });
 }
 
+//Aggiorna le icone/emoji personalizzate delle categorie della dispensa
+export async function updatePantryCategoryIcons(pantryId: string, newCategoryIcons: Record<string, string>) {
+  const pantryRef = doc(db, "pantries", pantryId);
+  await setDoc(pantryRef, { pantryCategoryIcons: newCategoryIcons, pantryUpdatedAt: serverTimestamp() }, { merge: true });
+}
+
 //Rimuove un membro specifico (solo owner può chiamarla, l'autorizzazione la gestiamo nella UI/Firestore rules)
 export async function removeMemberFromPantry(pantryId: string, memberToRemoveId: string) {
   const pantryRef = doc(db, "pantries", pantryId);

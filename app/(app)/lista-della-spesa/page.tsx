@@ -7,6 +7,8 @@ import { doc, getDoc, writeBatch, serverTimestamp } from "firebase/firestore";
 import { getProductsByPantry } from "@/lib/firestore/products";
 import {
   getShoppingListItemsByPantry,
+  deleteCompletedShoppingListItems,
+  clearAllShoppingListItems,
 } from "@/lib/firestore/shoppingList";
 import { type Product } from "@/types/firestore/productType";
 import { type ShoppingListItem as ShoppingListItemType } from "@/types/firestore/shoppingListItemType";
@@ -24,7 +26,7 @@ const BarcodeScannerPopup = dynamic(
   { ssr: false }
 );
 import type { CheckoutRestockItem } from "@/components/popups/CheckoutRestockModal";
-import { Search, Loader, CheckCircle, Plus, Camera } from "lucide-react";
+import { Search, Loader, CheckCircle, Plus, Camera, Trash2 } from "lucide-react";
 import { saveCachedProducts, getCachedProducts, saveCachedShoppingItems, getCachedShoppingItems } from "@/lib/offline/indexedDb";
 import { CATEGORY_FALLBACK_EMOJIS } from "@/lib/utils/foodIcons";
 
@@ -231,6 +233,30 @@ export default function ListaSpesaPage() {
 
   const hasPurchasedItems = listItems.some(item => item.listItemStatus === "purchased");
 
+  const handleDeleteCompleted = async () => {
+    if (!currentPantryId) return;
+    const purchasedCount = listItems.filter(i => i.listItemStatus === "purchased").length;
+    if (purchasedCount === 0) return;
+    if (!window.confirm(`Vuoi rimuovere i ${purchasedCount} articoli acquistati dalla lista della spesa?`)) return;
+    try {
+      await deleteCompletedShoppingListItems(currentPantryId);
+      await fetchData();
+    } catch (err) {
+      console.error("Errore eliminazione articoli acquistati:", err);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!currentPantryId || listItems.length === 0) return;
+    if (!window.confirm("Attenzione: vuoi davvero eliminare TUTTI gli articoli dalla lista della spesa?")) return;
+    try {
+      await clearAllShoppingListItems(currentPantryId);
+      await fetchData();
+    } catch (err) {
+      console.error("Errore svuotamento totale lista della spesa:", err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -277,6 +303,10 @@ export default function ListaSpesaPage() {
             setAddPopUpOpen(true);
           }}
           onScanClick={() => setIsScannerOpen(true)}
+          onDeleteCompleted={handleDeleteCompleted}
+          onClearAll={handleClearAll}
+          hasPurchasedItems={hasPurchasedItems}
+          totalItemsCount={listItems.length}
         />
       </div>
 
@@ -306,6 +336,30 @@ export default function ListaSpesaPage() {
               )}
               <span>Completa Spesa</span>
             </button>
+          )}
+
+          {/* Opzioni eliminazione lista su Desktop */}
+          {listItems.length > 0 && (
+            <div className="flex items-center gap-1.5 border-r border-zinc-200 dark:border-zinc-700/60 pr-2.5">
+              {hasPurchasedItems && (
+                <button
+                  type="button"
+                  onClick={handleDeleteCompleted}
+                  title="Elimina articoli acquistati dalla lista"
+                  className="px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-colors cursor-pointer"
+                >
+                  Rimuovi Acquistati
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleClearAll}
+                title="Svuota l'intera lista della spesa"
+                className="p-2 text-zinc-500 hover:text-rose-600 dark:text-zinc-400 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4.5 h-4.5" />
+              </button>
+            </div>
           )}
 
           {/* Tasto Primario Aggiungi alla Spesa su Desktop (Modalità Ibrida) */}

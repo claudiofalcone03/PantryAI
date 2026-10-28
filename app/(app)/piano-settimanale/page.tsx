@@ -445,7 +445,7 @@ export default function PianoSettimanalePage() {
   const selectedDayPlan = weeklyPlan?.days?.[selectedDayInfo?.dateStr];
 
   return (
-    <div className="flex-1 min-h-0 h-full max-h-screen overflow-y-auto w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-28 space-y-6">
+    <div className="flex-1 min-h-0 h-full max-h-screen overflow-y-auto w-full max-w-6xl mx-auto px-4 sm:px-6 pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:py-6 space-y-6">
       {/* Top Banner & Titolo */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">

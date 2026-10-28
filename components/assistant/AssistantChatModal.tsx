@@ -186,6 +186,19 @@ export function AssistantChatModal({
     inputValueRef.current = inputValue;
   }, [inputValue]);
 
+  // Body scroll lock quando l'assistente è aperto in modalità modale
+  useEffect(() => {
+    if (!isOpen || mode !== "modal" || typeof document === "undefined") return;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
+    };
+  }, [isOpen, mode]);
+
   // Sincronizza stato di autenticazione reattivo
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -1216,12 +1229,12 @@ export function AssistantChatModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-200"
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-xs transition-opacity duration-200 overscroll-contain touch-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full h-[88vh] animate-in slide-in-from-bottom-5 duration-300 flex flex-col">
+      <div className="w-full h-[88vh] animate-in slide-in-from-bottom-5 duration-300 flex flex-col overscroll-contain">
         {chatContent}
       </div>
     </div>

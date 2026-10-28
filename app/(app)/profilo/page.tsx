@@ -401,7 +401,7 @@ export default function ProfilePage() {
 		<div className="flex-1 flex flex-col min-h-0 h-full max-h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
 			{/* Mobile TopBar */}
 			<div className="md:hidden shrink-0">
-				<header className="sticky top-0 z-10 px-4 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md flex items-center justify-between">
+				<header className="sticky top-0 z-10 px-4 pb-3.5 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md flex items-center justify-between">
 					<div className="flex items-center gap-2.5">
 						<div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 flex items-center justify-center border border-zinc-200 dark:border-zinc-700">
 							<Settings className="w-4 h-4" />
@@ -437,7 +437,7 @@ export default function ProfilePage() {
 			</header>
 
 			{/* Main Content - UNICA AREA CHE SCORRE */}
-			<main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 w-full max-w-6xl mx-auto">
+			<main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 w-full max-w-6xl mx-auto pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-6">
 				{/* Layout Dashboard a 2 Colonne su Desktop */}
 				<div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pb-24">
 					{/* COLONNA SINISTRA: Profilo & Azioni Account */}

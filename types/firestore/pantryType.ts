@@ -12,6 +12,7 @@ export interface Pantry {
   pantryMembers?: PantryMember[];
   pantryInviteCode?: string;
   pantryCategories?: string[]; //categorie nella dispensa
+  pantryCategoryIcons?: Record<string, string>; //mappa opzionale icona/emoji per categoria (es. { "Latticini": "🧀" })
 }
 
 export const DEFAULT_PANTRY_CATEGORIES = [

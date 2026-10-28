@@ -346,4 +346,76 @@ export async function addRawItemToShoppingList(
   return shoppingListRef.id;
 }
 
+/**
+ * Elimina tutti gli elementi acquistati (purchased) dalla lista della spesa per una dispensa
+ */
+export async function deleteCompletedShoppingListItems(pantryId: string): Promise<number> {
+  if (!pantryId) return 0;
+  try {
+    const q = query(
+      collection(db, "shoppingListItems"),
+      where("listItemPantryId", "==", pantryId),
+      where("listItemStatus", "==", "purchased")
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return 0;
+
+    const batch = writeBatch(db);
+    snap.docs.forEach((itemDoc) => {
+      const data = itemDoc.data() as ShoppingListItem;
+      batch.delete(itemDoc.ref);
+      if (data.listItemProductId) {
+        batch.update(doc(db, "products", data.listItemProductId), {
+          addToShoppingList: false,
+          productShoppingListItemId: null,
+          productUpdatedAt: serverTimestamp(),
+        });
+      }
+    });
+
+    await batch.commit();
+    dispatchShoppingListEvents(true);
+    return snap.size;
+  } catch (err) {
+    console.error("Errore eliminazione elementi acquistati:", err);
+    throw err;
+  }
+}
+
+/**
+ * Svuota completamente la lista della spesa per una dispensa
+ */
+export async function clearAllShoppingListItems(pantryId: string): Promise<number> {
+  if (!pantryId) return 0;
+  try {
+    const q = query(
+      collection(db, "shoppingListItems"),
+      where("listItemPantryId", "==", pantryId)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return 0;
+
+    const batch = writeBatch(db);
+    snap.docs.forEach((itemDoc) => {
+      const data = itemDoc.data() as ShoppingListItem;
+      batch.delete(itemDoc.ref);
+      if (data.listItemProductId) {
+        batch.update(doc(db, "products", data.listItemProductId), {
+          addToShoppingList: false,
+          productShoppingListItemId: null,
+          productUpdatedAt: serverTimestamp(),
+        });
+      }
+    });
+
+    await batch.commit();
+    dispatchShoppingListEvents(true);
+    return snap.size;
+  } catch (err) {
+    console.error("Errore svuotamento totale lista della spesa:", err);
+    throw err;
+  }
+}
+
+
 

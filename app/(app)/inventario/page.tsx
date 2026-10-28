@@ -30,13 +30,11 @@ import {
   Search,
   PackageOpen,
   ArrowUpDown,
-  Clock,
   SlidersHorizontal,
   Snowflake,
   Plus,
   LayoutGrid,
   List,
-  Bell,
   Camera,
 } from "lucide-react";
 import { getEffectiveExpiryDate } from "@/lib/firestore/pantries";
@@ -48,11 +46,11 @@ export default function InventarioPage() {
   const [loading, setLoading] = useState(true);
   const [pantryName, setPantryName] = useState("");
   const [pantryCategories, setPantryCategories] = useState<string[]>([]);
+  const [pantryCategoryIcons, setPantryCategoryIcons] = useState<Record<string, string>>({});
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [showOnlyOpened, setShowOnlyOpened] = useState(false);
-  const [showOnlyExpiring, setShowOnlyExpiring] = useState(false);
   const [showOnlyFrozen, setShowOnlyFrozen] = useState(false);
   const [sortCriteria, setSortCriteria] = useState<SortCriteria>("none");
   const [isSortFilterOpen, setIsSortFilterOpen] = useState(false);
@@ -150,6 +148,7 @@ export default function InventarioPage() {
             ? data.pantryCategories
             : DEFAULT_PANTRY_CATEGORIES
         );
+        setPantryCategoryIcons(data.pantryCategoryIcons || {});
       }
 
       // Caricamento prodotti (con supporto offline-first IndexedDB)
@@ -386,17 +385,6 @@ export default function InventarioPage() {
     return map;
   }, [products]);
 
-  // Conteggio prodotti in scadenza (<= 3 giorni o già scaduti)
-  const expiringCount = React.useMemo(() => {
-    if (nowTimestamp === 0) return 0;
-    return products.filter((p) => {
-      const eff = getEffectiveExpiryDate(p);
-      if (!eff) return false;
-      const diffDays = (eff.getTime() - nowTimestamp) / (1000 * 60 * 60 * 24);
-      return diffDays <= 3;
-    }).length;
-  }, [products, nowTimestamp]);
-
   // Conteggio prodotti congelati nel freezer
   const frozenCount = React.useMemo(() => {
     return products.filter((p) => Boolean(p.isFrozen)).length;
@@ -437,16 +425,6 @@ export default function InventarioPage() {
       const matchesOpened = showOnlyOpened ? !!p.productOpenedAt : true;
       const matchesFrozen = showOnlyFrozen ? Boolean(p.isFrozen) : true;
 
-      const matchesExpiring = showOnlyExpiring
-        ? (() => {
-            if (nowTimestamp === 0) return true;
-            const eff = getEffectiveExpiryDate(p);
-            if (!eff) return false;
-            const diffDays = (eff.getTime() - nowTimestamp) / (1000 * 60 * 60 * 24);
-            return diffDays <= 3;
-          })()
-        : true;
-
       const matchesStatus = (() => {
         if (statusFilter === "all") return true;
         const qty = p.productQuantity || 0;
@@ -468,12 +446,11 @@ export default function InventarioPage() {
         matchesSearch &&
         matchesCategory &&
         matchesOpened &&
-        matchesExpiring &&
         matchesFrozen &&
         matchesStatus
       );
     });
-  }, [products, searchQuery, selectedCategory, showOnlyOpened, showOnlyFrozen, showOnlyExpiring, statusFilter, nowTimestamp]);
+  }, [products, searchQuery, selectedCategory, showOnlyOpened, showOnlyFrozen, statusFilter, nowTimestamp]);
 
   // Ordinamento avanzato memoizzato
   const sortedProducts = useMemo(() => {
@@ -690,32 +667,6 @@ export default function InventarioPage() {
               <LayoutGrid className="w-4 h-4" />
             </button>
           </div>
-
-          {/* Campanella Notifiche Scadenze */}
-          <button
-            onClick={() => {
-              setStatusFilter((prev) => (prev === "expiring" ? "all" : "expiring"));
-            }}
-            title={
-              statusFilter === "expiring"
-                ? "Mostra tutti i prodotti"
-                : expiringCount > 0
-                ? `${expiringCount} prodotti in scadenza`
-                : "Nessun prodotto in scadenza"
-            }
-            className={`relative p-2 rounded-xl border transition-colors shadow-2xs cursor-pointer ${
-              statusFilter === "expiring"
-                ? "bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-950/60 dark:border-amber-800 dark:text-amber-300"
-                : "bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800"
-            }`}
-          >
-            <Bell className="w-5 h-5" />
-            {expiringCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-xs">
-                {expiringCount}
-              </span>
-            )}
-          </button>
         </div>
       </header>
 
@@ -739,23 +690,6 @@ export default function InventarioPage() {
 
           {/* Filtri rapidi visibili SOLO su mobile */}
           <div className="flex items-center gap-1.5 md:hidden">
-            <button
-              onClick={() => setShowOnlyExpiring(!showOnlyExpiring)}
-              title={showOnlyExpiring ? "Mostra tutti i prodotti" : "Filtra prodotti in scadenza"}
-              className={`relative p-2.5 rounded-2xl border transition-colors shrink-0 ${
-                showOnlyExpiring
-                  ? "bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-950/60 dark:border-amber-800 dark:text-amber-300"
-                  : "bg-white border-zinc-200 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-500"
-              }`}
-            >
-              <Clock className="w-5 h-5" />
-              {expiringCount > 0 && !showOnlyExpiring && (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white shadow">
-                  {expiringCount}
-                </span>
-              )}
-            </button>
-
             <button
               onClick={() => setShowOnlyOpened(!showOnlyOpened)}
               title={showOnlyOpened ? "Mostra tutti" : "Mostra solo aperti"}
@@ -824,7 +758,7 @@ export default function InventarioPage() {
           {pantryCategories.map((cat) => {
             const count = categoryCounts[cat] || 0;
             const isSelected = selectedCategory === cat;
-            const emoji = CATEGORY_FALLBACK_EMOJIS[cat] || "🏷️";
+            const emoji = pantryCategoryIcons[cat] || CATEGORY_FALLBACK_EMOJIS[cat] || "🏷️";
             return (
               <button
                 key={cat}
@@ -906,7 +840,7 @@ export default function InventarioPage() {
       </div>
 
       {/* Area Lista Prodotti: L'UNICA AREA CHE SCORRE */}
-      <main className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 w-full max-w-6xl mx-auto flex flex-col">
+      <main className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 w-full max-w-6xl mx-auto flex flex-col pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-6">
           {sortedProducts.length === 0 ? (
             <div className="text-center py-16 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-8 max-w-xl mx-auto shadow-2xs">
               <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto mb-3 text-2xl">
@@ -916,7 +850,7 @@ export default function InventarioPage() {
                 Nessun prodotto trovato
               </h3>
               <p className="text-zinc-500 dark:text-zinc-400 text-xs">
-                {searchQuery || selectedCategory || statusFilter !== "all" || showOnlyOpened || showOnlyExpiring || showOnlyFrozen
+                {searchQuery || selectedCategory || statusFilter !== "all" || showOnlyOpened || showOnlyFrozen
                   ? "Prova a modificare i filtri o la ricerca per visualizzare altri alimenti."
                   : "La tua dispensa è vuota. Aggiungi il tuo primo articolo con il pulsante verde!"}
               </p>
@@ -1041,8 +975,12 @@ export default function InventarioPage() {
         onClose={() => setIsManageCategoriesOpen(false)}
         pantryId={currentPantryId}
         currentCategories={pantryCategories}
+        currentCategoryIcons={pantryCategoryIcons}
         onCategoriesUpdated={(newCats) => {
           setPantryCategories(newCats);
+        }}
+        onCategoryIconsUpdated={(newIcons) => {
+          setPantryCategoryIcons(newIcons);
         }}
       />
 
@@ -1052,8 +990,8 @@ export default function InventarioPage() {
         onClose={() => setIsSortFilterOpen(false)}
         currentSort={sortCriteria}
         onSelectSort={handleSelectSort}
-        showOnlyExpiring={showOnlyExpiring}
-        onToggleExpiring={() => setShowOnlyExpiring(!showOnlyExpiring)}
+        showOnlyExpiring={statusFilter === "expiring"}
+        onToggleExpiring={() => setStatusFilter((prev) => (prev === "expiring" ? "all" : "expiring"))}
         showOnlyOpened={showOnlyOpened}
         onToggleOpened={() => setShowOnlyOpened(!showOnlyOpened)}
         showOnlyFrozen={showOnlyFrozen}

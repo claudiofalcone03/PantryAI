@@ -131,7 +131,7 @@ export default function SprecoPage() {
     <div className="flex-1 flex flex-col min-h-0 h-full max-h-screen overflow-hidden bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       {/* Mobile TopBar */}
       <div className="md:hidden shrink-0">
-        <header className="sticky top-0 z-10 px-4 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md flex items-center justify-between">
+        <header className="sticky top-0 z-10 px-4 pb-3.5 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 flex items-center justify-center border border-emerald-200 dark:border-emerald-800">
               <Leaf className="w-4 h-4" />
@@ -169,7 +169,7 @@ export default function SprecoPage() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 w-full max-w-6xl mx-auto flex flex-col gap-6">
+      <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 w-full max-w-6xl mx-auto flex flex-col gap-6 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-6">
         {/* Banner Informativo se Telemetria Disattivata */}
         {!isTelemetryEnabled && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-3xl text-amber-900 dark:text-amber-200 text-xs animate-in fade-in shadow-2xs">
