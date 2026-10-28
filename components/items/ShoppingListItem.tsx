@@ -23,6 +23,8 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const currentOffsetRef = useRef(0);
+  const startOffsetRef = useRef(0);
   const isHorizontalSwipeRef = useRef<boolean | null>(null);
 
   const isPurchased = item.listItemStatus === "purchased";
@@ -108,6 +110,7 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
       console.error("Errore rimozione elemento dalla spesa:", error);
     } finally {
       setIsDeleting(false);
+      currentOffsetRef.current = 0;
       setSwipeOffset(0);
     }
   };
@@ -118,6 +121,7 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
       x: e.touches[0].clientX,
       y: e.touches[0].clientY,
     };
+    startOffsetRef.current = currentOffsetRef.current;
     isHorizontalSwipeRef.current = null;
     setIsSwiping(false);
   };
@@ -135,14 +139,12 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
 
     if (!isHorizontalSwipeRef.current) return;
 
-    if (deltaX < 0) {
-      setIsSwiping(true);
-      const clamped = Math.max(-85, deltaX);
-      setSwipeOffset(clamped);
-    } else if (swipeOffset < 0) {
-      const clamped = Math.min(0, swipeOffset + deltaX);
-      setSwipeOffset(clamped);
-    }
+    setIsSwiping(true);
+    // Tracciamento continuo partendo dall'offset iniziale, limitato rigorosamente tra -80px e 0px
+    const rawOffset = startOffsetRef.current + deltaX;
+    const clamped = Math.max(-80, Math.min(0, rawOffset));
+    currentOffsetRef.current = clamped;
+    setSwipeOffset(clamped);
   };
 
   const handleTouchEnd = () => {
@@ -151,16 +153,15 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
     isHorizontalSwipeRef.current = null;
     setIsSwiping(false);
 
-    // Se l'utente ha trascinato per più di 40px verso sinistra, ancora a -72px rivelando il tasto elimina
-    if (swipeOffset < -40) {
-      setSwipeOffset(-72);
-    } else {
-      setSwipeOffset(0);
-    }
+    // Se trascinato a sinistra per oltre 35px, aggancia aperto a -72px (mostrando il tasto Elimina), altrimenti chiude a 0
+    const finalOffset = currentOffsetRef.current < -35 ? -72 : 0;
+    currentOffsetRef.current = finalOffset;
+    setSwipeOffset(finalOffset);
   };
 
   const closeSwipe = () => {
-    if (swipeOffset !== 0) {
+    if (currentOffsetRef.current !== 0) {
+      currentOffsetRef.current = 0;
       setSwipeOffset(0);
     }
   };
@@ -170,7 +171,11 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
   return (
     <div className="relative overflow-hidden rounded-2xl mb-2 sm:mb-2.5">
       {/* Azione di eliminazione su Mobile (nascosta dietro la scheda, rivelata su swipe a sinistra) */}
-      <div className="absolute inset-y-0 right-0 w-20 bg-rose-600 dark:bg-rose-700 flex items-center justify-center rounded-2xl md:hidden z-0">
+      <div
+        className={`absolute inset-y-0 right-0 w-20 bg-rose-600 dark:bg-rose-700 flex items-center justify-center rounded-2xl md:hidden transition-opacity duration-150 ${
+          swipeOffset < -5 ? "opacity-100 z-0" : "opacity-0 pointer-events-none -z-10"
+        }`}
+      >
         <button
           type="button"
           onClick={handleDelete}
@@ -195,13 +200,14 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         style={{
           transform: `translateX(${swipeOffset}px)`,
           transition: isSwiping ? "none" : "transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
         className={`relative z-10 flex items-center justify-between p-2.5 sm:p-3.5 border rounded-2xl shadow-xs transition-colors group ${
           isPurchased
-            ? "bg-zinc-50 border-zinc-200 dark:bg-zinc-900/50 dark:border-zinc-800 opacity-60"
+            ? "bg-zinc-100 border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700"
             : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700"
         }`}
       >
@@ -212,21 +218,25 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
             disabled={isUpdating || isDeleting}
             className={`w-6 h-6 rounded-lg border flex items-center justify-center shrink-0 transition-colors ${
               isPurchased
-                ? "bg-green-500 border-green-500 text-white"
-                : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-transparent hover:border-green-500 dark:hover:border-green-500"
+                ? "bg-emerald-600 border-emerald-600 text-white"
+                : "border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-transparent hover:border-emerald-500 dark:hover:border-emerald-500"
             }`}
           >
             <Check className="w-3.5 h-3.5" />
           </button>
 
           {/* Icona alimento */}
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-base sm:text-lg shrink-0 select-none shadow-xs">
+          <div
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-base sm:text-lg shrink-0 select-none shadow-xs transition-opacity ${
+              isPurchased ? "opacity-75" : "opacity-100"
+            }`}
+          >
             {foodEmoji}
           </div>
 
           <div className="flex flex-col min-w-0 flex-1">
             <span
-              className={`font-semibold text-sm sm:text-base truncate ${
+              className={`font-semibold text-sm sm:text-base truncate transition-all ${
                 isPurchased
                   ? "text-zinc-400 dark:text-zinc-500 line-through"
                   : "text-zinc-900 dark:text-zinc-100"
@@ -235,7 +245,13 @@ export function ShoppingListItem({ item, product, onItemUpdated }: ShoppingListI
               {item.listItemName}
             </span>
             {product && (
-              <div className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
+              <div
+                className={`text-[11px] sm:text-xs transition-colors ${
+                  isPurchased
+                    ? "text-zinc-400 dark:text-zinc-500"
+                    : "text-zinc-500 dark:text-zinc-400"
+                }`}
+              >
                 In dispensa: {product.productQuantity} {product.productUnitOfMeasure || "pz"}
               </div>
             )}

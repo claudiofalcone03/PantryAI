@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, writeBatch, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { getProductsByPantry } from "@/lib/firestore/products";
 import {
   getShoppingListItemsByPantry,
@@ -19,20 +19,17 @@ import { ShoppingListItem } from "@/components/items/ShoppingListItem";
 import { ShoppingListItemSkeleton } from "@/components/skeletons/ShoppingListItemSkeleton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AddToShoppingListDesktopModal } from "@/components/popups/AddToShoppingListDesktopModal";
-import { CheckoutRestockModal } from "@/components/popups/CheckoutRestockModal";
 
 const BarcodeScannerPopup = dynamic(
   () => import("@/components/popups/BarcodeScannerPopup").then((mod) => mod.BarcodeScannerPopup),
   { ssr: false }
 );
-import type { CheckoutRestockItem } from "@/components/popups/CheckoutRestockModal";
-import { Search, Loader, CheckCircle, Plus, Camera, Trash2 } from "lucide-react";
+import { Search, Plus, Camera, Trash2 } from "lucide-react";
 import { saveCachedProducts, getCachedProducts, saveCachedShoppingItems, getCachedShoppingItems } from "@/lib/offline/indexedDb";
 import { CATEGORY_FALLBACK_EMOJIS } from "@/lib/utils/foodIcons";
 
 export default function ListaSpesaPage() {
   const [loading, setLoading] = useState(true);
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [pantryName, setPantryName] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [listItems, setListItems] = useState<ShoppingListItemType[]>([]);
@@ -45,8 +42,6 @@ export default function ListaSpesaPage() {
   const [scannedProductName, setScannedProductName] = useState("");
   const [scannedCarbonFootprint, setScannedCarbonFootprint] = useState<number | null>(null);
   const [pantryCategories, setPantryCategories] = useState<string[]>([]);
-  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
-  const [restockItems, setRestockItems] = useState<CheckoutRestockItem[]>([]);
 
   const fetchData = React.useCallback(async () => {
     if (!auth.currentUser) return;
@@ -123,83 +118,6 @@ export default function ListaSpesaPage() {
     };
   }, [fetchData]);
 
-  // Esecuzione effettiva del completamento spesa con batch atomico Firestore
-  const executeCheckout = async (restockQuantities?: Record<string, number>) => {
-    setIsCheckingOut(true);
-    try {
-      const purchasedItems = listItems.filter((item) => item.listItemStatus === "purchased");
-      if (purchasedItems.length === 0) return;
-
-      const batch = writeBatch(db);
-
-      for (const item of purchasedItems) {
-        // Elimina sempre il documento dalla lista della spesa
-        batch.delete(doc(db, "shoppingListItems", item.listItemId));
-
-        // Se l'elemento appartiene a un prodotto dell'inventario, aggiorna lo stato atomico
-        if (item.listItemProductId) {
-          const product = products.find((p) => p.productId === item.listItemProductId);
-          if (product && product.productId) {
-            const productRef = doc(db, "products", product.productId);
-            const restockedQty = restockQuantities ? restockQuantities[product.productId] : undefined;
-            if (restockedQty !== undefined && restockedQty > 0) {
-              batch.update(productRef, {
-                productQuantity: restockedQty,
-                addToShoppingList: false,
-                productShoppingListItemId: null,
-                productUpdatedAt: serverTimestamp(),
-              });
-            } else {
-              batch.update(productRef, {
-                addToShoppingList: false,
-                productShoppingListItemId: null,
-                productUpdatedAt: serverTimestamp(),
-              });
-            }
-          }
-        }
-      }
-
-      await batch.commit();
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("inventory-updated"));
-        window.dispatchEvent(new CustomEvent("shopping-list-updated"));
-      }
-      await fetchData();
-    } catch (error) {
-      console.error("Errore completamento spesa:", error);
-    } finally {
-      setIsCheckingOut(false);
-    }
-  };
-
-  // Completamento Spesa: se ci sono articoli acquistati a quantità 0 in dispensa, apre il modal di conferma
-  const handleCheckout = async () => {
-    if (isCheckingOut) return;
-
-    const purchasedItems = listItems.filter((item) => item.listItemStatus === "purchased");
-    if (purchasedItems.length === 0) return;
-
-    const zeroQtyPurchased = purchasedItems
-      .map((item) => ({
-        item,
-        product: products.find((p) => p.productId === item.listItemProductId),
-      }))
-      .filter((x): x is CheckoutRestockItem =>
-        Boolean(x.product && (x.product.productQuantity === 0 || !x.product.productQuantity))
-      );
-
-    if (zeroQtyPurchased.length > 0) {
-      setRestockItems(zeroQtyPurchased);
-      setIsRestockModalOpen(true);
-      return;
-    }
-
-    await executeCheckout();
-  };
-
-
   const itemsWithProduct = listItems.map(item => {
     return {
       item,
@@ -215,8 +133,6 @@ export default function ListaSpesaPage() {
     return Array.from(new Set(cates)).sort();
   }, [itemsWithProduct]);
 
-
-
   // Ricerca e filtro
   const filteredItems = itemsWithProduct.filter(x => {
     const matchesSearch = x.item.listItemName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -224,12 +140,8 @@ export default function ListaSpesaPage() {
     return matchesSearch && matchesCategory;
   });
 
-  // Ordinamento: toBuy e reserved prima, purchased in fondo
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    if (a.item.listItemStatus === "purchased" && b.item.listItemStatus !== "purchased") return 1;
-    if (a.item.listItemStatus !== "purchased" && b.item.listItemStatus === "purchased") return -1;
-    return 0;
-  });
+  // Gli elementi mantengono la loro posizione originale: gli articoli spuntati non si spostano né saltano via
+  const sortedItems = filteredItems;
 
   const hasPurchasedItems = listItems.some(item => item.listItemStatus === "purchased");
 
@@ -322,22 +234,6 @@ export default function ListaSpesaPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* Tasto Spesa Completata su desktop (se ci sono articoli spuntati) */}
-          {hasPurchasedItems && (
-            <button
-              onClick={handleCheckout}
-              disabled={isCheckingOut}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-sm font-semibold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
-            >
-              {isCheckingOut ? (
-                <Loader className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckCircle className="w-4 h-4" />
-              )}
-              <span>Completa Spesa</span>
-            </button>
-          )}
-
           {/* Opzioni eliminazione lista su Desktop */}
           {listItems.length > 0 && (
             <div className="flex items-center gap-1.5 border-r border-zinc-200 dark:border-zinc-700/60 pr-2.5">
@@ -385,24 +281,6 @@ export default function ListaSpesaPage() {
       {/* Blocco Ricerca & Categorie: PERMANENTEMENTE ANCORATO (shrink-0) */}
       <div className="shrink-0 border-b border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950 px-3 sm:px-6 pt-3 pb-3 z-10">
         <div className="w-full max-w-5xl mx-auto flex flex-col gap-3">
-          {/* Checkout Button su Mobile */}
-          {hasPurchasedItems && (
-            <div className="md:hidden">
-              <button
-                onClick={handleCheckout}
-                disabled={isCheckingOut}
-                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white p-3 rounded-2xl font-bold shadow-xs transition-all cursor-pointer"
-              >
-                {isCheckingOut ? (
-                  <Loader className="w-5 h-5 animate-spin" />
-                ) : (
-                  <CheckCircle className="w-5 h-5" />
-                )}
-                <span>Spesa Completata ({listItems.filter(i => i.listItemStatus === "purchased").length} acquistati)</span>
-              </button>
-            </div>
-          )}
-
           {/* Barra di ricerca */}
           <div className="relative w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -511,15 +389,6 @@ export default function ListaSpesaPage() {
           setScannedCarbonFootprint(null);
           setIsDesktopAddModalOpen(false);
           setAddPopUpOpen(true);
-        }}
-      />
-
-      <CheckoutRestockModal
-        isOpen={isRestockModalOpen}
-        onClose={() => setIsRestockModalOpen(false)}
-        items={restockItems}
-        onConfirm={async (quantities) => {
-          await executeCheckout(quantities);
         }}
       />
     </div>
